@@ -1,11 +1,47 @@
+# Rent4Moms Frontend
 
-  # Awaiting prompt submission
+Frontend da plataforma Rent4Moms, atualmente baseado no protótipo exportado pelo Figma Make.
 
-  This is a code bundle for Awaiting prompt submission. The original project is available at https://www.figma.com/design/Eos3AinzfO6RbV5wumT4ev/Awaiting-prompt-submission.
+## Requisitos
 
-  ## Running the code
+- Node.js 22.16.0
+- npm 10.9.2
 
-  Run `npm i` to install the dependencies.
+Use o arquivo `.nvmrc` para alinhar a versão do Node.
 
-  Run `npm run dev` to start the development server.
-  
+## Instalação
+
+```bash
+npm ci
+```
+
+## Desenvolvimento
+
+```bash
+npm run dev
+```
+
+Por padrão, o Vite disponibiliza a aplicação em `http://localhost:5173`.
+
+## Qualidade
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
+
+Para executar toda a validação do baseline:
+
+```bash
+npm run check
+```
+
+## Configuração
+
+Copie `.env.example` para `.env.local` quando a integração com o backend for iniciada.
+
+## Estado atual
+
+A Etapa 0 adiciona somente proteção e reprodutibilidade. O comportamento funcional e o layout do protótipo foram preservados. Consulte `docs/BASELINE.md` para os limites conhecidos.
