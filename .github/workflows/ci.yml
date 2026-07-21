@@ -24,8 +24,15 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      - name: Show npm configuration
+        run: |
+          node --version
+          npm --version
+          npm config get registry
+
       - name: Install dependencies
-        run: npm ci
+        timeout-minutes: 10
+        run: npm ci --no-audit --no-fund --prefer-online
 
       - name: Validate frontend
         run: npm run check
