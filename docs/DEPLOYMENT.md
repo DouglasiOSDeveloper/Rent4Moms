@@ -47,3 +47,13 @@ Mantenha o artefato anterior disponível. Em caso de regressão:
 2. limpar apenas o cache do HTML;
 3. manter os assets anteriores durante a propagação;
 4. executar novamente o smoke test.
+
+## Gate final da Etapa J
+
+Antes de gerar o artefato que seguirá para homologação ou produção, execute:
+
+```bash
+npm run stage:j:verify
+```
+
+Além do QA anterior, o gate inspeciona os arquivos de runtime e o bundle compilado contra mocks, URLs demonstrativas, placeholders de mídia, frete legado e variáveis Vite não resolvidas. A aprovação final é registrada junto ao backend depois do teste de restauração e da validação do negócio.

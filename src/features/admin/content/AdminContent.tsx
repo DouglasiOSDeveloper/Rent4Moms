@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Archive, CheckCircle, ExternalLink, FileText, Globe, LoaderCircle, Plus, RefreshCw, Save, Send, Settings2 } from "lucide-react";
 import { Btn, Input, Select, cn } from "../../../components/prototype/PrototypeUI";
-import { DEFAULT_INTEGRATION_SETTINGS, DEFAULT_SITE_SETTINGS } from "../../../data/mocks/siteContent";
+import { createEmptyIntegrationSettings, createEmptySiteSettings } from "../../../domain/content/emptyContent";
 import type { AdminContentSnapshot, IntegrationSettingsDocument, LegalPageAdmin, SiteSettingsDocument } from "../../../domain/content/types";
 import { legalPagePath } from "../../../domain/content/types";
 import {
@@ -40,8 +40,8 @@ export function AdminContent() {
   const { refreshSiteContent } = useSiteContent();
   const [tab, setTab] = useState<Tab>("institucional");
   const [snapshot, setSnapshot] = useState<AdminContentSnapshot | null>(null);
-  const [siteDraft, setSiteDraft] = useState<SiteSettingsDocument>(DEFAULT_SITE_SETTINGS);
-  const [integrationsDraft, setIntegrationsDraft] = useState<IntegrationSettingsDocument>(DEFAULT_INTEGRATION_SETTINGS);
+  const [siteDraft, setSiteDraft] = useState<SiteSettingsDocument>(() => createEmptySiteSettings());
+  const [integrationsDraft, setIntegrationsDraft] = useState<IntegrationSettingsDocument>(() => createEmptyIntegrationSettings());
   const [selectedSlug, setSelectedSlug] = useState("");
   const [legalForm, setLegalForm] = useState<LegalForm>(emptyLegalForm);
   const [creatingLegal, setCreatingLegal] = useState(false);
@@ -58,8 +58,8 @@ export function AdminContent() {
     try {
       const data = await loadAdminContent();
       setSnapshot(data);
-      setSiteDraft(structuredClone(data.siteSettings));
-      setIntegrationsDraft(structuredClone(data.integrations));
+      setSiteDraft(structuredClone(data.siteSettings ?? createEmptySiteSettings()));
+      setIntegrationsDraft(structuredClone(data.integrations ?? createEmptyIntegrationSettings()));
       const first = data.legalPages.find((page) => page.status !== "archived") ?? data.legalPages[0];
       if (first) {
         setSelectedSlug(first.slug);

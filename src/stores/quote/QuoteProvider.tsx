@@ -10,6 +10,7 @@ import type {
   QuoteStoreValue,
   QuoteSubmission,
 } from "../../domain/quote/types";
+import type { ShippingEstimate } from "../../domain/shipping/types";
 import { createRemoteQuote } from "../../services/quotes/quotesApi";
 import { useCatalog } from "../catalog/CatalogProvider";
 import { loadQuoteDraft, saveQuoteDraft } from "./persistence";
@@ -65,8 +66,8 @@ export function QuoteProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: "UPDATE_ADDRESS", patch });
   }, []);
 
-  const updateShippingQuote = useCallback((amountCents: number | null, cep: string) => {
-    dispatch({ type: "UPDATE_SHIPPING_QUOTE", amountCents, cep });
+  const updateShippingQuote = useCallback((estimate: ShippingEstimate | null, cep: string) => {
+    dispatch({ type: "UPDATE_SHIPPING_QUOTE", estimate, cep });
   }, []);
 
   const updateCustomerData = useCallback((patch: Partial<QuoteCustomerData>) => {

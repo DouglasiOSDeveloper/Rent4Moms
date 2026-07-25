@@ -18,9 +18,38 @@ export interface PersistedQuote {
 }
 
 export async function createRemoteQuote(draft: QuoteDraft): Promise<QuoteSubmission> {
+  const payload = {
+    version: draft.version,
+    fulfillment: draft.fulfillment,
+    address: draft.address,
+    deliverySlot: draft.deliverySlot,
+    customerData: draft.customerData,
+    additionalInfo: draft.additionalInfo,
+    consents: draft.consents,
+    updatedAt: draft.updatedAt,
+    items: draft.items.map((item) => {
+      const assembly = item.productSnapshot.assembly;
+      return {
+        productId: item.productId,
+        quantity: item.quantity,
+        periodDays: item.periodDays,
+        startDate: item.startDate,
+        ...(assembly ? {
+          configuration: {
+            chairModelId: assembly.chairModelId,
+            variantId: assembly.variantId,
+            coverId: assembly.cover.id,
+            reducerId: assembly.reducer?.id ?? null,
+            ballSetId: assembly.ballSet.id,
+            selectedAngle: assembly.selectedAngle,
+          },
+        } : {}),
+      };
+    }),
+  };
   const response = await apiRequest<{ quote: QuoteSubmission }>("/quotes", {
     method: "POST",
-    body: JSON.stringify(draft),
+    body: JSON.stringify(payload),
   });
   return response.quote;
 }

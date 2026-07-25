@@ -28,4 +28,9 @@ describe("administrative operation routes", () => {
     expect(pageFromPathname("/politica-de-privacidade")).toBe("privacy-policy");
   });
 
+  it("maps the operational help center", () => {
+    expect(pagePath("admin-help")).toBe("/admin/ajuda");
+    expect(pageFromPathname("/admin/ajuda")).toBe("admin-help");
+  });
+
 });

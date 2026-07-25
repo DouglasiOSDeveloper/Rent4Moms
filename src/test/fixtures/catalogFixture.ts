@@ -20,6 +20,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     status: "available", conservation: "Muito bom",
     description: "Cadeira de balanço eletrônica com 5 movimentos únicos inspirados nos pais. Conexão Bluetooth e sons naturais. Um dos modelos mais procurados pelas famílias.",
     rating: 4.9, reviews: 31, featured: true, minDays: 7,
+    isActive: true, publicationStatus: "published",
     photo: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=600&h=450&fit=crop&auto=format",
     tags: ["eletrônica", "bluetooth", "5 movimentos", "sons naturais"],
     specs: { dimensions: "73×56×96 cm", productWeight: "5,5 kg", material: "Plástico ABS + tecido removível", color: "Cinza clássico", electric: "Bateria ou adaptador AC", includes: ["Cadeira MamaRoo", "Adaptador AC", "Manual"] },
@@ -32,6 +33,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     status: "available", conservation: "Bom",
     description: "Cadeirinha conversível com 9 posições de recline. Aprovada pelos principais testes de segurança. Ideal para bebês recém-nascidos até crianças maiores.",
     rating: 4.7, reviews: 18, featured: true, minDays: 7,
+    isActive: true, publicationStatus: "published",
     photo: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=600&h=450&fit=crop&auto=format",
     tags: ["conversível", "recline", "isofix", "segurança"],
     specs: { dimensions: "44×68×64 cm", productWeight: "8,2 kg", material: "Aço + espuma EPS + tecido", color: "Preto", electric: "Não", includes: ["Cadeirinha", "Capa de proteção", "Manual"] },
@@ -44,6 +46,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     status: "few_units", conservation: "Bom",
     description: "Assento de elevação com apoio lateral de proteção. Encosto removível para uso como booster simples. Ótimo custo-benefício para crianças maiores.",
     rating: 4.5, reviews: 12, featured: false, minDays: 7,
+    isActive: true, publicationStatus: "published",
     photo: "https://images.unsplash.com/photo-1492725764893-90b379c2b6e7?w=600&h=450&fit=crop&auto=format",
     tags: ["booster", "encosto removível", "proteção lateral"],
     specs: { dimensions: "40×46×66 cm", productWeight: "4,1 kg", material: "Polipropileno + tecido", color: "Cinza e azul", electric: "Não", includes: ["Assento", "Encosto", "Manual"] },
@@ -56,6 +59,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     status: "available", conservation: "Muito bom",
     description: "Cadeira de alimentação compacta que encaixa em uma cadeira comum. Bandeja removível e lavável. Perfeita para apartamentos e espaços menores.",
     rating: 4.6, reviews: 24, featured: true, minDays: 5,
+    isActive: true, publicationStatus: "published",
     photo: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=600&h=450&fit=crop&auto=format",
     tags: ["compacta", "bandeja lavável", "para apartamento"],
     specs: { dimensions: "35×40×30 cm (na cadeira)", productWeight: "2,3 kg", material: "Plástico + tecido acolchoado", color: "Bege", electric: "Não", includes: ["Assento", "Bandeja", "Cinto 5 pontos", "Manual"] },
@@ -68,6 +72,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     status: "available", conservation: "Muito bom",
     description: "Balanço 2 em 1 que converte em cadeira vibratória portátil. 6 velocidades e músicas embutidas. Dobrável para facilitar o transporte.",
     rating: 4.4, reviews: 15, featured: false, minDays: 7,
+    isActive: true, publicationStatus: "published",
     photo: "https://images.unsplash.com/photo-1596464716127-f2a82984de30?w=600&h=450&fit=crop&auto=format",
     tags: ["2 em 1", "vibratória", "dobrável", "músicas"],
     specs: { dimensions: "58×80×98 cm", productWeight: "6,3 kg", material: "Plástico + tecido lavável", color: "Cinza e nude", electric: "Bateria (4 D)", includes: ["Balanço", "Brinquedos removíveis", "Manual"] },
@@ -80,6 +85,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     status: "on_demand", conservation: "Excelente",
     description: "Berço inteligente com movimentos naturais que reproduzem o colo dos pais. 5 movimentos, ruído branco integrado e monitoramento via app.",
     rating: 4.8, reviews: 9, featured: true, minDays: 14,
+    isActive: true, publicationStatus: "published",
     photo: "https://images.unsplash.com/photo-1548544027-7c9c78b58a0d?w=600&h=450&fit=crop&auto=format",
     tags: ["berço inteligente", "ruído branco", "app", "premium"],
     specs: { dimensions: "84×58×92 cm", productWeight: "9,1 kg", material: "Alumínio + tecido respirável", color: "Cinza", electric: "Sim (bivolt)", includes: ["Berço", "Lençol", "Adaptador", "Manual"] },
@@ -92,6 +98,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     status: "available", conservation: "Bom",
     description: "Cadeira de alimentação evolutiva que acompanha o bebê do nascimento aos 3 anos. 7 posições de recline, bandeja bipartida e pés antiderrapantes.",
     rating: 4.6, reviews: 20, featured: false, minDays: 7,
+    isActive: true, publicationStatus: "published",
     photo: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600&h=450&fit=crop&auto=format",
     tags: ["evolutiva", "recline", "bandeja bipartida"],
     specs: { dimensions: "52×78×98 cm", productWeight: "7,5 kg", material: "Plástico + tecido", color: "Rosa nude", electric: "Não", includes: ["Cadeira", "Bandeja", "Redutor recém-nascido", "Manual"] },
@@ -104,6 +111,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     status: "few_units", conservation: "Muito bom",
     description: "Cadeirinha 3 em 1 com ISOFIX que cresce com a criança. Posição rearfacing para recém-nascidos, conversível e booster. Testada para múltiplos impactos.",
     rating: 4.7, reviews: 14, featured: false, minDays: 7,
+    isActive: true, publicationStatus: "published",
     photo: "https://images.unsplash.com/photo-1617952547479-0f8b6cc45dc3?w=600&h=450&fit=crop&auto=format",
     tags: ["3 em 1", "isofix", "rearfacing", "evolutiva"],
     specs: { dimensions: "46×65×75 cm", productWeight: "9,8 kg", material: "Aço + EPS + tecido", color: "Grafite", electric: "Não", includes: ["Cadeirinha", "Redutor", "Manual"] },
@@ -116,6 +124,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     status: "available", conservation: "Muito bom",
     description: "Modelo MamaRoo 3.0 com movimentos eletrônicos e estrutura compatível com panos e redutores selecionados para esta versão.",
     rating: 4.8, reviews: 19, featured: true, minDays: 7,
+    isActive: true, publicationStatus: "published",
     photo: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=600&h=450&fit=crop&auto=format",
     tags: ["eletrônica", "movimentos", "4moms"],
     specs: { dimensions: "73×56×96 cm", productWeight: "5,5 kg", material: "Plástico ABS + tecido removível", color: "Configurável", electric: "Adaptador AC", includes: ["Cadeira MamaRoo 3.0", "Adaptador AC", "Conjunto de bolinhas 3.0", "Manual"] },
@@ -128,6 +137,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     status: "few_units", conservation: "Bom",
     description: "Modelo MamaRoo 2.0 com conjunto visual próprio, panos exclusivos desta geração e redutor específico quando selecionado.",
     rating: 4.6, reviews: 11, featured: false, minDays: 7,
+    isActive: true, publicationStatus: "published",
     photo: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=600&h=450&fit=crop&auto=format",
     tags: ["eletrônica", "4moms", "modelo 2.0"],
     specs: { dimensions: "73×56×96 cm", productWeight: "5,5 kg", material: "Plástico ABS + tecido removível", color: "Configurável", electric: "Adaptador AC", includes: ["Cadeira MamaRoo 2.0", "Adaptador AC", "Conjunto de bolinhas 2.0", "Manual"] },
@@ -217,6 +227,7 @@ function cover(
         },
     isActive: true,
     availableQuantity,
+    photo: "",
     kind: "cover",
   };
 }
@@ -248,6 +259,7 @@ function reducer(number: number, description: string, monthlyAdjustment: number,
     },
     isActive: true,
     availableQuantity,
+    photo: "",
     kind: "reducer",
   };
 }
@@ -260,10 +272,10 @@ export const INITIAL_REDUCERS: Reducer[] = [
 ];
 
 export const INITIAL_BALL_SETS: BallSet[] = [
-  { id: "ball-set-40", code: "b40", name: "Conjunto de bolinhas 4.0", modelId: "chair-model-40", description: "Conjunto de bolinhas exclusivo da cadeira 4.0.", isActive: true, availableQuantity: 4 },
-  { id: "ball-set-30", code: "b30", name: "Conjunto de bolinhas 3.0", modelId: "chair-model-30", description: "Conjunto de bolinhas exclusivo da cadeira 3.0.", isActive: true, availableQuantity: 3 },
-  { id: "ball-set-20", code: "b20", name: "Conjunto de bolinhas 2.0", modelId: "chair-model-20", description: "Conjunto de bolinhas exclusivo da cadeira 2.0.", isActive: true, availableQuantity: 2 },
-  { id: "ball-set-50", code: "b50", name: "Conjunto de bolinhas 5.0", modelId: "chair-model-50", description: "Cadastro reservado para a futura cadeira 5.0.", isActive: false, availableQuantity: 0 },
+  { id: "ball-set-40", code: "b40", name: "Conjunto de bolinhas 4.0", modelId: "chair-model-40", description: "Conjunto de bolinhas exclusivo da cadeira 4.0.", isActive: true, availableQuantity: 4, photo: "" },
+  { id: "ball-set-30", code: "b30", name: "Conjunto de bolinhas 3.0", modelId: "chair-model-30", description: "Conjunto de bolinhas exclusivo da cadeira 3.0.", isActive: true, availableQuantity: 3, photo: "" },
+  { id: "ball-set-20", code: "b20", name: "Conjunto de bolinhas 2.0", modelId: "chair-model-20", description: "Conjunto de bolinhas exclusivo da cadeira 2.0.", isActive: true, availableQuantity: 2, photo: "" },
+  { id: "ball-set-50", code: "b50", name: "Conjunto de bolinhas 5.0", modelId: "chair-model-50", description: "Cadastro reservado para a futura cadeira 5.0.", isActive: false, availableQuantity: 0, photo: "" },
 ];
 
 function compatibility(
@@ -291,14 +303,22 @@ export const INITIAL_COMPATIBILITIES: ComponentCompatibility[] = [
   compatibility("chair-model-20", "reducer", "reducer-04", true),
 ];
 
-const ANGLES: AssemblyAngle[] = ["FRT", "DIR", "ESQ", "SUP"];
+const ANGLES: Array<{ code: AssemblyAngle; label: string }> = [
+  { code: "FRT", label: "Frontal" },
+  { code: "DIR", label: "Lateral direita" },
+  { code: "ESQ", label: "Lateral esquerda" },
+];
 
 function imagesFor(prefix: string, modelVersion: string, coverName: string, reducerName: string): AssemblyImage[] {
-  return ANGLES.map((angle) => ({
-    angle,
-    assetKey: `${prefix}_${angle}`,
-    alt: `${modelVersion} com ${coverName}${reducerName ? ` e ${reducerName}` : " sem redutor"} — ${angle}`,
-    isPlaceholder: true,
+  return ANGLES.map((angle, index) => ({
+    id: `${prefix}-${angle.code.toLowerCase()}`,
+    angleId: `angle-${angle.code.toLowerCase()}`,
+    angle: angle.code,
+    angleLabel: angle.label,
+    url: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480"><rect width="100%" height="100%" fill="%23f3ede8"/><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="34" fill="%236a3b2c">${modelVersion} ${angle.code}</text></svg>`)}`,
+    alt: `${modelVersion} com ${coverName}${reducerName ? ` e ${reducerName}` : " sem redutor"} — ${angle.label}`,
+    isVisible: true,
+    sortOrder: index,
   }));
 }
 

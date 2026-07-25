@@ -8,7 +8,7 @@ import {
   INITIAL_COVERS,
   INITIAL_PRODUCTS,
   INITIAL_REDUCERS,
-} from "../../data/mocks/catalog";
+} from "../../test/fixtures/catalogFixture";
 import { getCategoriesWithCount, getCategoryNames } from "../../domain/catalog/selectors";
 import type { CatalogSnapshot, Category } from "../../domain/catalog/types";
 import { catalogReducer } from "./catalogReducer";

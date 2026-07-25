@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { loadAdminContent, loadPublicLegalPage, loadPublicSiteContent, publishAdminLegalPage, saveAdminSiteSettings } from "./contentApi";
-import { DEFAULT_INTEGRATION_SETTINGS, DEFAULT_SITE_SETTINGS } from "../../data/mocks/siteContent";
+import { DEFAULT_INTEGRATION_SETTINGS, DEFAULT_SITE_SETTINGS } from "../../test/fixtures/contentFixture";
 
 describe("content API", () => {
   beforeEach(() => vi.restoreAllMocks());
@@ -14,7 +14,7 @@ describe("content API", () => {
       return new Response(JSON.stringify({ siteSettings: DEFAULT_SITE_SETTINGS, legalPages: [] }), { status: 200, headers: { "content-type": "application/json" } });
     });
 
-    expect((await loadPublicSiteContent()).siteSettings.brand.name).toBe("Rent4Moms");
+    expect((await loadPublicSiteContent()).siteSettings?.brand.name).toBe("Rent4Moms");
     expect((await loadPublicLegalPage("termos-de-uso")).version).toBe(2);
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/content/site"), expect.objectContaining({ credentials: "include" }));
   });
@@ -32,7 +32,7 @@ describe("content API", () => {
       return new Response(JSON.stringify({ siteSettings: DEFAULT_SITE_SETTINGS }), { status: 200, headers: { "content-type": "application/json" } });
     });
 
-    expect((await loadAdminContent()).integrations.payments.mode).toBe("manual");
+    expect((await loadAdminContent()).integrations?.payments.mode).toBe("manual");
     await saveAdminSiteSettings(DEFAULT_SITE_SETTINGS);
     expect((await publishAdminLegalPage("termos-de-uso")).publishedVersion).toBe(2);
     expect(fetchMock).toHaveBeenCalledTimes(3);

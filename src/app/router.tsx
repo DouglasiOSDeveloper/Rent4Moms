@@ -7,6 +7,7 @@ import { WhatsAppFloat } from "../components/layout/WhatsAppFloat";
 import { SkipLink } from "../components/layout/SkipLink";
 import { AccountDashboard, AccountLayout, AccountOrderDetail, AccountProfile, AccountQuotes, AccountReservations } from "../features/account/AccountPages";
 import { AdminLayout } from "../features/admin/AdminLayout";
+import { AdminHelp } from "../features/admin/help/AdminHelp";
 import { AdminCategories } from "../features/admin/categories/AdminCategories";
 import { AdminConfigurator } from "../features/admin/configurator/AdminConfigurator";
 import { AdminInventory } from "../features/admin/inventory/AdminInventory";
@@ -19,7 +20,7 @@ import {
   AdminClients,
   AdminConfig,
   AdminDashboard,
-  AdminGeneric,
+  AdminUsers,
   AdminProducts,
   AdminReports,
 } from "../features/admin/AdminPages";
@@ -92,10 +93,11 @@ function AdminShell({ currentPage, navigate, onLogout }: {
   navigate: NavigateToPage;
   onLogout: () => void;
 }) {
+  const { user } = useAppState();
   return (
     <div style={{ fontFamily: "'Manrope', sans-serif" }} className="min-h-screen">
       <SkipLink />
-      <AdminLayout currentPage={currentPage} navigate={navigate} onLogout={onLogout}>
+      <AdminLayout currentPage={currentPage} navigate={navigate} onLogout={onLogout} userName={user?.name} userEmail={user?.email}>
         <Outlet />
       </AdminLayout>
     </div>
@@ -104,7 +106,7 @@ function AdminShell({ currentPage, navigate, onLogout }: {
 
 function ProductRoute({ navigate }: { navigate: NavigateToPage }) {
   const { productId = "mamaroo-40" } = useParams();
-  const { shippingZones, deliverySettings } = useAppState();
+  const { deliverySettings } = useAppState();
   const { draft, addProduct, quoteItemIds } = useQuote();
 
   return (
@@ -113,7 +115,6 @@ function ProductRoute({ navigate }: { navigate: NavigateToPage }) {
       navigate={navigate}
       onAddToQuote={addProduct}
       quoteItemIds={quoteItemIds}
-      shippingZones={shippingZones}
       deliverySettings={deliverySettings}
       existingItem={draft.items.find((item) => item.productId === productId)}
       initialFulfillment={draft.fulfillment}
@@ -135,10 +136,14 @@ export function AppRouter() {
   const {
     auth,
     authStatus,
-    shippingZones,
-    setShippingZones,
+    shippingSettings,
+    updateShippingSettings,
     deliverySettings,
     updateDeliverySettings,
+    settingsStatus,
+    routeProviderStatus,
+    saveDeliverySettingsNow,
+    refreshDeliverySettings,
     login,
     register,
     completeClaim,
@@ -179,7 +184,7 @@ export function AppRouter() {
         <Route path="/produtos" element={<CatalogPage navigate={navigate} onAddToQuote={addProduct} quoteItemIds={quoteItemIds} />} />
         <Route path="/produtos/:productId" element={<ProductRoute navigate={navigate} />} />
         <Route path="/comparar" element={<ComparePage navigate={navigate} onAddToQuote={addProduct} />} />
-        <Route path="/orcamento" element={<QuotePage navigate={navigate} shippingZones={shippingZones} deliverySettings={deliverySettings} />} />
+        <Route path="/orcamento" element={<QuotePage navigate={navigate} deliverySettings={deliverySettings} />} />
         <Route path="/orcamento/sucesso" element={<QuoteSuccessPage navigate={navigate} />} />
         <Route path="/entrar" element={<LoginPage navigate={navigate} onLogin={handleLogin} />} />
         <Route path="/criar-conta" element={<SignupPage navigate={navigate} onRegister={handleRegister} onClaimComplete={handleClaimComplete} />} />
@@ -227,8 +232,9 @@ export function AppRouter() {
           <Route path="/admin/experiencia-cliente" element={<AdminCustomerExperience />} />
           <Route path="/admin/conteudo" element={<AdminContent />} />
           <Route path="/admin/relatorios" element={<AdminReports />} />
-          <Route path="/admin/usuarios" element={<AdminGeneric title="Usuários e permissões" />} />
-          <Route path="/admin/configuracoes" element={<AdminConfig shippingZones={shippingZones} setShippingZones={setShippingZones} deliverySettings={deliverySettings} updateDeliverySettings={updateDeliverySettings} />} />
+          <Route path="/admin/usuarios" element={<AdminUsers />} />
+          <Route path="/admin/configuracoes" element={<AdminConfig shippingSettings={shippingSettings} updateShippingSettings={updateShippingSettings} deliverySettings={deliverySettings} updateDeliverySettings={updateDeliverySettings} saveDeliverySettingsNow={saveDeliverySettingsNow} routeProviderStatus={routeProviderStatus} settingsStatus={settingsStatus} refreshDeliverySettings={refreshDeliverySettings} />} />
+          <Route path="/admin/ajuda" element={<AdminHelp />} />
         </Route>
       </Route>
 

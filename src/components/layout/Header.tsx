@@ -37,7 +37,7 @@ export function Header({ currentPage, navigate, quoteCount, auth, onLogout }: {
               <span className="text-white text-xs font-bold">R4</span>
             </div>
             <span style={{ fontFamily: "'DM Serif Display', serif" }} className="text-lg text-foreground tracking-tight">
-              {siteSettings.brand.name}
+              {siteSettings.brand.name || "Rent4Moms"}
             </span>
           </button>
 

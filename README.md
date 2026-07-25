@@ -42,6 +42,23 @@ npm run check
 
 Copie `.env.example` para `.env.local` quando a integração com o backend for iniciada.
 
-## Estado atual
+## Etapa A — congelamento de dados
 
-A Etapa 0 adiciona somente proteção e reprodutibilidade. O comportamento funcional e o layout do protótipo foram preservados. Consulte `docs/BASELINE.md` para os limites conhecidos.
+Antes da remoção dos mocks, gere o inventário e valide que nenhum novo consumidor runtime foi adicionado:
+
+```bash
+npm run stage:a:inventory
+npm run guard:no-new-runtime-mocks
+```
+
+Consulte `docs/STAGE_A.md` e `docs/DATA_ORIGIN_INVENTORY.md`. A remoção efetiva dos mocks pertence à Etapa B.
+
+## Ajuda operacional
+
+A documentação da administração fica em `docs/OPERATIONS_GUIDE.md`, `docs/STATUS_GLOSSARY.md` e `docs/RUNBOOKS.md`. O painel também oferece a rota protegida `/admin/ajuda` e ajuda contextual em cada tela.
+
+Validação da Etapa I:
+
+```bash
+npm run stage:i:verify
+```

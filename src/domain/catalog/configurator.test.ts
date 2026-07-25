@@ -6,7 +6,7 @@ import {
   INITIAL_COMPATIBILITIES,
   INITIAL_COVERS,
   INITIAL_REDUCERS,
-} from "../../data/mocks/catalog";
+} from "../../test/fixtures/catalogFixture";
 import {
   composeConfigurationDescription,
   getAssemblyVariant,
@@ -27,10 +27,17 @@ const catalog = {
 };
 
 describe("configurador 4moms", () => {
-  it("semeia as 48 combinações e 192 angulações do controle visual", () => {
+  it("aceita variantes com uma, duas ou três angulações visíveis sem exigir SUP", () => {
+    const base = INITIAL_ASSEMBLY_VARIANTS[0]!;
+    const oneAngle = { ...base, images: base.images.slice(0, 1) };
+    const twoAngles = { ...base, images: base.images.slice(0, 2) };
+    const threeAngles = { ...base, images: base.images.slice(0, 3) };
+
     expect(INITIAL_ASSEMBLY_VARIANTS).toHaveLength(48);
-    expect(INITIAL_ASSEMBLY_VARIANTS.flatMap((variant) => variant.images)).toHaveLength(192);
-    expect(INITIAL_ASSEMBLY_VARIANTS.every(isAssemblyVariantComplete)).toBe(true);
+    expect(INITIAL_ASSEMBLY_VARIANTS.flatMap((variant) => variant.images)).toHaveLength(144);
+    expect(INITIAL_ASSEMBLY_VARIANTS.flatMap((variant) => variant.images).some((image) => image.angle === "SUP")).toBe(false);
+    expect([oneAngle, twoAngles, threeAngles].every(isAssemblyVariantComplete)).toBe(true);
+    expect(isAssemblyVariantComplete({ ...base, images: [] })).toBe(false);
   });
 
   it("limita panos e redutores pela compatibilidade do modelo", () => {

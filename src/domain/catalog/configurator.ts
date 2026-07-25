@@ -1,6 +1,5 @@
 import type { RentalRateTable } from "../pricing/types";
 import type {
-  AssemblyImage,
   AssemblyVariant,
   BallSet,
   CatalogSnapshot,
@@ -131,8 +130,7 @@ export function getConfigurationAvailableQuantity(configuration: {
 }
 
 export function isAssemblyVariantComplete(variant: AssemblyVariant): boolean {
-  const angles = new Set(variant.images.map((image) => image.angle));
-  return ["FRT", "DIR", "ESQ", "SUP"].every((angle) => angles.has(angle as AssemblyImage["angle"]));
+  return variant.images.some((image) => image.isVisible && Boolean(image.url.trim()));
 }
 
 export function componentIsPreferred(

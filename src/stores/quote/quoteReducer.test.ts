@@ -1,4 +1,4 @@
-import { INITIAL_PRODUCTS } from "../../data/mocks/catalog";
+import { INITIAL_PRODUCTS } from "../../test/fixtures/catalogFixture";
 import { createEmptyQuoteDraft } from "../../domain/quote/factories";
 import { loadQuoteDraft, QUOTE_STORAGE_KEY, saveQuoteDraft } from "./persistence";
 import { quoteReducer } from "./quoteReducer";
@@ -17,7 +17,27 @@ describe("quote draft", () => {
         fulfillment: "delivery",
         deliverySlot: "11:00",
         cep: "01000-000",
-        shippingAmountCents: 2_500,
+        shippingEstimate: {
+          status: "calculated" as const,
+          amountCents: 2_500,
+          cep: "01000-000",
+          provider: "test_routes",
+          formulaVersion: "distance-fuel-v1" as const,
+          originLabel: "Estoque de teste",
+          oneWayDistanceKm: 5,
+          chargedDistanceKm: 10,
+          durationSeconds: 900,
+          fuelLiters: 1,
+          parameters: {
+            fuelPriceCentsPerLiter: 600,
+            consumptionKmPerLiter: 10,
+            multiplier: 1,
+            minimumFeeCents: 2_500,
+            roundTrip: true,
+            maxDistanceKm: 50,
+          },
+          calculatedAt: new Date(0).toISOString(),
+        },
       },
     });
 
@@ -116,4 +136,59 @@ describe("quote draft", () => {
     expect(memory.has(QUOTE_STORAGE_KEY)).toBe(true);
     expect(restored).toEqual(draft);
   });
+
+  it("clears an old full address when the product page changes only the CEP", () => {
+    let draft = createEmptyQuoteDraft();
+    draft = quoteReducer(draft, {
+      type: "UPDATE_ADDRESS",
+      patch: {
+        cep: "71925-000",
+        street: "Quadra 205",
+        number: "9",
+        complement: "Apt 401 B",
+        district: "Sul (Águas Claras)",
+        city: "Brasília",
+        state: "DF",
+      },
+    });
+
+    const updated = quoteReducer(draft, {
+      type: "ADD_PRODUCT",
+      product,
+      options: { periodDays: 30, startDate: "2026-08-01", fulfillment: "delivery", cep: "71060-235" },
+    });
+
+    expect(updated.address).toEqual({
+      cep: "71060-235",
+      street: "",
+      number: "",
+      complement: "",
+      district: "",
+      city: "",
+      state: "",
+    });
+  });
+
+  it("invalidates the freight preview when a route-relevant address field changes", () => {
+    let draft = createEmptyQuoteDraft();
+    draft = {
+      ...draft,
+      fulfillment: "delivery",
+      address: {
+        cep: "71060-235",
+        street: "QE 40",
+        number: "10",
+        complement: "",
+        district: "Guará II",
+        city: "Brasília",
+        state: "DF",
+      },
+      shippingQuote: { status: "calculated", amountCents: 3_419, cep: "71060-235" },
+    };
+
+    const updated = quoteReducer(draft, { type: "UPDATE_ADDRESS", patch: { number: "20" } });
+
+    expect(updated.shippingQuote).toEqual({ status: "not_requested", amountCents: 0, cep: "71060-235" });
+  });
+
 });

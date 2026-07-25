@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { NavigateToPage } from "../../../app/navigation";
 import { useAppState } from "../../../app/providers";
 import {
@@ -22,14 +22,17 @@ import { formatDeliverySlotLabel } from "../../../domain/delivery/slots";
 import type { DeliverySettings } from "../../../domain/delivery/types";
 import { calculateQuotePriceSummary } from "../../../domain/pricing/pricingEngine";
 import type { FulfillmentMethod, QuoteAddress } from "../../../domain/quote/types";
-import type { Page, ShippingZone } from "../../../domain/shared/types";
-import { calculateShippingByCep } from "../../../domain/shipping/shippingCalculator";
+import type { Page } from "../../../domain/shared/types";
 import { addDays, formatDateBR, getTomorrowIsoDate } from "../../../lib/dates";
 import { maskCpf, maskPhone } from "../../../lib/masks";
 import { formatMoneyFromCents } from "../../../lib/money";
 import { isValidCep } from "../../../lib/validators";
 import { useQuote } from "../../../stores/quote/QuoteProvider";
+import { useSiteContent } from "../../../stores/content/SiteContentProvider";
+import { buildWhatsAppUrl } from "../../../lib/contact";
+import { EmptyState } from "../../../components/states/DataState";
 import { validateQuoteStep, type QuoteValidationErrors } from "../validation";
+import { estimateRemoteShipping } from "../../../services/shipping/shippingApi";
 
 function ValidationSummary({ errors }: { errors: QuoteValidationErrors }) {
   const messages = [...new Set(Object.values(errors))];
@@ -44,15 +47,16 @@ function ValidationSummary({ errors }: { errors: QuoteValidationErrors }) {
   );
 }
 
-export function QuotePage({ navigate, shippingZones, deliverySettings }: {
+export function QuotePage({ navigate, deliverySettings }: {
   navigate: (p: Page) => void;
-  shippingZones: ShippingZone[];
   deliverySettings: DeliverySettings;
 }) {
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<QuoteValidationErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [shippingPending, setShippingPending] = useState(false);
+  const [shippingMessage, setShippingMessage] = useState("");
   const {
     draft,
     removeItem,
@@ -67,7 +71,6 @@ export function QuotePage({ navigate, shippingZones, deliverySettings }: {
     updateConsents,
     submitQuote,
   } = useQuote();
-
   const steps = ["Produtos", "Entrega", "Dados", "Informações", "Revisão"];
   const firstItem = draft.items[0];
   const commonPeriod = draft.items.length > 0 && draft.items.every((item) => item.periodDays === firstItem.periodDays)
@@ -94,27 +97,57 @@ export function QuotePage({ navigate, shippingZones, deliverySettings }: {
     });
   }, []);
 
-  const refreshShipping = useCallback((cep: string, fulfillment = draft.fulfillment) => {
-    if (fulfillment !== "delivery") {
-      updateShippingQuote(0, cep);
-      return;
+  useEffect(() => {
+    let active = true;
+    if (draft.fulfillment !== "delivery") {
+      setShippingPending(false);
+      setShippingMessage("");
+      updateShippingQuote(null, draft.address.cep);
+      return () => { active = false; };
     }
-    if (!isValidCep(cep)) return;
-    const amount = calculateShippingByCep(cep, shippingZones);
-    updateShippingQuote(amount === null ? null : Math.round(amount * 100), cep);
-  }, [draft.fulfillment, shippingZones, updateShippingQuote]);
+    if (!isValidCep(draft.address.cep)) {
+      setShippingPending(false);
+      setShippingMessage("");
+      return () => { active = false; };
+    }
+    updateShippingQuote(null, draft.address.cep);
+    setShippingPending(true);
+    setShippingMessage("");
+    const timer = window.setTimeout(() => {
+      void estimateRemoteShipping(draft.address)
+        .then((estimate) => {
+          if (!active) return;
+          updateShippingQuote(estimate, draft.address.cep);
+        })
+        .catch((error: unknown) => {
+          if (!active) return;
+          updateShippingQuote(null, draft.address.cep);
+          setShippingMessage(error instanceof Error ? error.message : "Não foi possível calcular o frete.");
+        })
+        .finally(() => { if (active) setShippingPending(false); });
+    }, 350);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [
+    draft.fulfillment,
+    draft.address.cep,
+    draft.address.street,
+    draft.address.number,
+    draft.address.complement,
+    draft.address.district,
+    draft.address.city,
+    draft.address.state,
+    updateShippingQuote,
+  ]);
 
   const handleFulfillment = (fulfillment: FulfillmentMethod) => {
     updateFulfillment(fulfillment);
     clearErrors("cep", "street", "number", "city", "state", "deliverySlot");
-    refreshShipping(draft.address.cep, fulfillment);
   };
 
   const handleAddressChange = useCallback((patch: Partial<QuoteAddress>) => {
     updateAddress(patch);
     Object.keys(patch).forEach((key) => clearErrors(key));
-    if (patch.cep !== undefined && isValidCep(patch.cep)) refreshShipping(patch.cep);
-  }, [clearErrors, refreshShipping, updateAddress]);
+  }, [clearErrors, updateAddress]);
 
   const validateAndAdvance = () => {
     const nextErrors = validateQuoteStep(step, draft, deliverySettings);
@@ -180,6 +213,7 @@ export function QuotePage({ navigate, shippingZones, deliverySettings }: {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-foreground">{formatMoneyFromCents(item.priceSnapshot.totalCents)}</p>
+                    {item.priceSnapshot.discountCents > 0 && <p className="text-xs text-green-700 mt-1">{item.priceSnapshot.benefitType === "free_configuration" ? "Configuração gratuita" : item.priceSnapshot.benefitType === "free_base" ? "Produto-base gratuito" : `${item.priceSnapshot.discountPercent}% de desconto no produto-base`}</p>}
                     <button onClick={() => removeItem(item.productId)} className="text-xs text-destructive mt-2 hover:underline">Remover</button>
                   </div>
                 </div>
@@ -256,7 +290,6 @@ export function QuotePage({ navigate, shippingZones, deliverySettings }: {
               <AddressFields
                 address={draft.address}
                 onChange={handleAddressChange}
-                onCepResolved={(cep) => refreshShipping(cep)}
                 errors={errors}
               />
               {isValidCep(draft.address.cep) && (
@@ -265,9 +298,11 @@ export function QuotePage({ navigate, shippingZones, deliverySettings }: {
                   draft.shippingQuote.status === "calculated" ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800",
                 )} aria-live="polite">
                   <Truck size={14} className="shrink-0" />
-                  {draft.shippingQuote.status === "calculated"
-                    ? <span>Frete estimado: <strong>{formatMoneyFromCents(draft.shippingQuote.amountCents)}</strong></span>
-                    : <span>CEP fora da área de atendimento para entrega. Escolha retirada ou combine com a equipe.</span>}
+                  {shippingPending
+                    ? <span>Calculando a distância da entrega...</span>
+                    : draft.shippingQuote.status === "calculated"
+                      ? <span>Frete estimado: <strong>{formatMoneyFromCents(draft.shippingQuote.amountCents)}</strong>{draft.shippingQuote.oneWayDistanceKm !== undefined && <span className="block text-xs mt-0.5">Rota de {draft.shippingQuote.oneWayDistanceKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km.</span>}</span>
+                      : <span>{shippingMessage || "Não foi possível calcular a entrega para este endereço. Escolha retirada ou combine com a equipe."}</span>}
                 </div>
               )}
               <DeliverySlotSelect
@@ -325,7 +360,7 @@ export function QuotePage({ navigate, shippingZones, deliverySettings }: {
                     {item.productSnapshot.name} (×{item.quantity}) · {item.periodDays} dias
                     {item.productSnapshot.assembly && <span className="block text-xs mt-0.5">{item.productSnapshot.assembly.cover.name} · {item.productSnapshot.assembly.reducer?.name ?? "Sem redutor"} · {item.productSnapshot.assembly.variantId}</span>}
                   </span>
-                  <span className="text-foreground whitespace-nowrap">{formatMoneyFromCents(item.priceSnapshot.totalCents)}</span>
+                  <span className="text-foreground whitespace-nowrap text-right">{formatMoneyFromCents(item.priceSnapshot.totalCents)}{item.priceSnapshot.discountCents > 0 && <span className="block text-xs text-green-700">− {formatMoneyFromCents(item.priceSnapshot.discountCents)}</span>}</span>
                 </div>
               ))}
             </div>
@@ -342,7 +377,8 @@ export function QuotePage({ navigate, shippingZones, deliverySettings }: {
               </div>
             </div>
             <div className="bg-card rounded-2xl border border-border p-4 text-sm">
-              <div className="flex justify-between text-muted-foreground mb-2"><span>Produtos</span><span>{formatMoneyFromCents(total.itemsSubtotalCents - total.discountCents)}</span></div>
+              <div className="flex justify-between text-muted-foreground mb-2"><span>Produtos e adicionais</span><span>{formatMoneyFromCents(total.itemsSubtotalCents)}</span></div>
+              {total.discountCents > 0 && <div className="flex justify-between text-green-700 mb-2"><span>Benefícios do período</span><span>− {formatMoneyFromCents(total.discountCents)}</span></div>}
               {draft.fulfillment === "delivery" && <div className="flex justify-between text-muted-foreground mb-2"><span>Frete</span><span>{draft.shippingQuote.status === "calculated" ? formatMoneyFromCents(total.shippingCents) : "A calcular"}</span></div>}
               <div className="border-t border-border pt-3 flex justify-between font-semibold"><span className="text-foreground">Total estimado</span><span className="text-primary text-lg">{formatMoneyFromCents(total.totalCents)}</span></div>
             </div>
@@ -380,21 +416,37 @@ export function QuotePage({ navigate, shippingZones, deliverySettings }: {
 export function QuoteSuccessPage({ navigate }: { navigate: NavigateToPage }) {
   const { lastSubmission } = useQuote();
   const { auth } = useAppState();
+  const { siteSettings } = useSiteContent();
+  const whatsappUrl = buildWhatsAppUrl(siteSettings.contact.whatsapp, siteSettings.whatsapp.defaultMessage);
+
+  if (!lastSubmission) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-20">
+        <EmptyState
+          title="Nenhuma solicitação recente"
+          description="A confirmação aparecerá somente depois que um orçamento real for enviado."
+          actionLabel="Voltar ao catálogo"
+          onAction={() => navigate("catalog")}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-20 text-center">
       <div className="w-20 h-20 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle size={40} className="text-accent" /></div>
       <h1 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-3xl text-foreground mb-4">Solicitação recebida!</h1>
-      <p className="text-muted-foreground mb-2">Número da solicitação: <span className="font-semibold text-foreground">{lastSubmission?.code ?? "Não disponível"}</span></p>
+      <p className="text-muted-foreground mb-2">Número da solicitação: <span className="font-semibold text-foreground">{lastSubmission.code}</span></p>
       <p className="text-muted-foreground leading-relaxed mb-8">Recebemos sua solicitação. Nossa equipe verificará os produtos, o período e a região de atendimento antes de confirmar a reserva. Você receberá um retorno em até 24 horas úteis.</p>
       <div className="bg-secondary rounded-2xl border border-border p-6 mb-8 text-left">
-        <div className="flex items-center gap-3 mb-3"><Clock size={18} className="text-primary" /><span className="font-medium text-foreground">Status: {lastSubmission?.status ?? "Em análise"}</span></div>
-        {lastSubmission?.holdExpiresAt && <p className="text-sm text-foreground mb-2">As unidades selecionadas estão bloqueadas até <strong>{new Date(lastSubmission.holdExpiresAt).toLocaleString("pt-BR")}</strong>, enquanto a equipe analisa o pedido.</p>}
-        {lastSubmission?.allocations && lastSubmission.allocations.length > 0 && <p className="text-xs text-muted-foreground mb-2">{lastSubmission.allocations.length} componente(s) físico(s) foram separados temporariamente.</p>}
+        <div className="flex items-center gap-3 mb-3"><Clock size={18} className="text-primary" /><span className="font-medium text-foreground">Status: {lastSubmission.status}</span></div>
+        {lastSubmission.holdExpiresAt && <p className="text-sm text-foreground mb-2">As unidades selecionadas estão bloqueadas até <strong>{new Date(lastSubmission.holdExpiresAt).toLocaleString("pt-BR")}</strong>, enquanto a equipe analisa o pedido.</p>}
+        {lastSubmission.allocations && lastSubmission.allocations.length > 0 && <p className="text-xs text-muted-foreground mb-2">{lastSubmission.allocations.length} componente(s) físico(s) foram separados temporariamente.</p>}
         <p className="text-sm text-muted-foreground">A reserva só é confirmada após a verificação da equipe. Pedidos cancelados ou expirados liberam automaticamente as unidades.</p>
       </div>
       <div className="flex flex-wrap gap-3 justify-center">
-        <Btn variant="primary" onClick={() => auth === "client" ? navigate("account-quotes") : navigate("login", lastSubmission?.code ? { pedido: lastSubmission.code } : undefined)}>Acompanhar solicitação</Btn>
-        <a href="https://wa.me/[NUMERO]" target="_blank" rel="noreferrer"><Btn variant="outline"><MessageCircle size={16} />Falar no WhatsApp</Btn></a>
+        <Btn variant="primary" onClick={() => auth === "client" ? navigate("account-quotes") : navigate("login", lastSubmission.code ? { pedido: lastSubmission.code } : undefined)}>Acompanhar solicitação</Btn>
+        {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer"><Btn variant="outline"><MessageCircle size={16} />Falar no WhatsApp</Btn></a>}
         <Btn variant="ghost" onClick={() => navigate("catalog")}>Voltar ao catálogo</Btn>
       </div>
     </div>

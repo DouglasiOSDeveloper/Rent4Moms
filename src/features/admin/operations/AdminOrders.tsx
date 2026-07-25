@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   AlertCircle, Archive, ArrowLeft, Camera, CheckCircle, Clock, CreditCard, Droplets,
@@ -16,6 +16,7 @@ import {
   deleteOperationalAttachment, loadOrderOperation, saveManualPayment, uploadOperationalAttachment,
 } from "../../../services/operations/operationsApi";
 import { listAdminQuotes, type PersistedQuote } from "../../../services/quotes/quotesApi";
+import { listAdminReservations } from "../../../services/admin/adminApi";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
 
 const PAYMENT_LABELS: Record<PaymentStatus, string> = {
@@ -57,13 +58,13 @@ export function AdminOrdersList({ reservationsOnly = false }: { reservationsOnly
     ? ["Todos", "Aprovado", "Em preparação", "Em locação", "Devolvido"]
     : ["Todos", "Em análise", "Aprovado", "Em preparação", "Em locação", "Devolvido", "Expirado", "Cancelado"];
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
     setLoading(true); setError("");
-    try { setQuotes(await listAdminQuotes()); }
+    try { setQuotes(await (reservationsOnly ? listAdminReservations() : listAdminQuotes())); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível carregar os pedidos."); }
     finally { setLoading(false); }
-  };
-  useEffect(() => { void reload(); }, []);
+  }, [reservationsOnly]);
+  useEffect(() => { void reload(); }, [reload]);
 
   const filtered = useMemo(() => quotes.filter((quote) => {
     if (reservationsOnly && !["Aprovado", "Em preparação", "Em locação", "Devolvido"].includes(quote.status)) return false;

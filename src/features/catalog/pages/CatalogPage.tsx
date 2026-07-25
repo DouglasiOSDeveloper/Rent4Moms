@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Archive, Filter, List, Package, Search, X } from "lucide-react";
+import { Archive, Filter, List, Search, X } from "lucide-react";
 import { useSearchParams } from "react-router";
-import type { Page, Product } from "../../../domain/shared/types";
-import { getCategoryNames } from "../../../domain/catalog/selectors";
+import { ErrorState, EmptyState, LoadingState } from "../../../components/states/DataState";
 import { ProductCard } from "../../../components/prototype/ProductCard";
+import { getCategoryNames } from "../../../domain/catalog/selectors";
+import type { Page, Product } from "../../../domain/shared/types";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
 
 export function CatalogPage({ navigate, onAddToQuote, quoteItemIds }: {
@@ -11,7 +12,7 @@ export function CatalogPage({ navigate, onAddToQuote, quoteItemIds }: {
   onAddToQuote: (p: Product) => void;
   quoteItemIds: string[];
 }) {
-  const { products, categories, publicCategories } = useCatalog();
+  const { products, categories, publicCategories, syncStatus, refreshCatalog } = useCatalog();
   const [searchParams, setSearchParams] = useSearchParams();
   const [compareItems, setCompareItems] = useState<string[]>([]);
   const [search, setSearch] = useState(searchParams.get("busca") ?? "");
@@ -70,7 +71,9 @@ export function CatalogPage({ navigate, onAddToQuote, quoteItemIds }: {
     <div className="flex flex-col gap-6">
       <div>
         <p className="font-semibold text-foreground mb-3">Categoria</p>
-        {publicCategories.map((category) => (
+        {publicCategories.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhuma categoria publicada.</p>
+        ) : publicCategories.map((category) => (
           <label key={category.id} className="flex items-center gap-2 py-1.5 cursor-pointer">
             <input type="checkbox" checked={filterCat.includes(category.id)} onChange={() => toggleCat(category.id)} className="accent-primary" />
             <span className="text-sm text-foreground flex-1">{category.name}</span>
@@ -98,6 +101,29 @@ export function CatalogPage({ navigate, onAddToQuote, quoteItemIds }: {
     </div>
   );
 
+  const catalogState = (() => {
+    if (syncStatus === "loading") return <LoadingState title="Carregando catálogo" description="Consultando os produtos publicados." />;
+    if (syncStatus === "error") return <ErrorState title="Não foi possível carregar os produtos" description="Nenhum dado fictício foi exibido. Verifique a API e tente novamente." onRetry={() => void refreshCatalog()} />;
+    if (products.length === 0) return <EmptyState title="Nenhum produto publicado" description="Os produtos cadastrados e publicados pelo administrador aparecerão aqui." />;
+    if (filtered.length === 0) return <EmptyState title="Nenhum produto encontrado" description="Ajuste os filtros ou a busca." actionLabel="Limpar filtros" onAction={clearFilters} />;
+    return (
+      <div className={viewMode === "grid" ? "grid sm:grid-cols-2 xl:grid-cols-3 gap-6" : "flex flex-col gap-4"}>
+        {filtered.map((product) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            categoryNames={getCategoryNames(product, publicCategories)}
+            navigate={navigate}
+            onAddToQuote={onAddToQuote}
+            isInQuote={quoteItemIds.includes(product.id)}
+            isComparing={compareItems.includes(product.id)}
+            onToggleCompare={(id) => setCompareItems((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])}
+          />
+        ))}
+      </div>
+    );
+  })();
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="mb-8">
@@ -108,15 +134,15 @@ export function CatalogPage({ navigate, onAddToQuote, quoteItemIds }: {
       <div className="flex gap-3 mb-6 flex-wrap">
         <div className="relative flex-1 min-w-64">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar produtos ou categorias..." className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-input-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar produtos ou categorias..." disabled={products.length === 0} className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-input-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60" />
         </div>
-        <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="px-4 py-2.5 rounded-xl border border-border bg-input-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+        <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} disabled={products.length === 0} className="px-4 py-2.5 rounded-xl border border-border bg-input-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60">
           {["Mais relevantes", "Menor preço estimado", "Maior preço estimado", "Melhor avaliados", "Mais procurados"].map((option) => <option key={option}>{option}</option>)}
         </select>
-        <button onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")} className="px-3 py-2.5 rounded-xl border border-border bg-input-background text-muted-foreground hover:text-foreground transition-colors" aria-label="Alternar visualização">
+        <button onClick={() => setViewMode(viewMode === "grid" ? "list" : "grid")} disabled={products.length === 0} className="px-3 py-2.5 rounded-xl border border-border bg-input-background text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60" aria-label="Alternar visualização">
           {viewMode === "grid" ? <List size={18} /> : <Archive size={18} />}
         </button>
-        <button onClick={() => setDrawerOpen(true)} className="lg:hidden flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-input-background text-foreground">
+        <button onClick={() => setDrawerOpen(true)} disabled={products.length === 0} className="lg:hidden flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-input-background text-foreground disabled:opacity-60">
           <Filter size={16} />Filtros
         </button>
       </div>
@@ -137,30 +163,10 @@ export function CatalogPage({ navigate, onAddToQuote, quoteItemIds }: {
       <div className="flex gap-8">
         <aside className="hidden lg:block w-56 shrink-0"><FilterPanel /></aside>
         <div className="flex-1">
-          <p className="text-sm text-muted-foreground mb-6">{filtered.length} produto{filtered.length !== 1 ? "s" : ""} encontrado{filtered.length !== 1 ? "s" : ""}</p>
-          {filtered.length === 0 ? (
-            <div className="text-center py-20 text-muted-foreground">
-              <Package size={40} className="mx-auto mb-4 opacity-30" />
-              <p className="font-medium">Nenhum produto encontrado</p>
-              <p className="text-sm mt-1">Tente ajustar os filtros ou a busca</p>
-              <button onClick={clearFilters} className="mt-4 text-primary underline text-sm">Limpar filtros</button>
-            </div>
-          ) : (
-            <div className={viewMode === "grid" ? "grid sm:grid-cols-2 xl:grid-cols-3 gap-6" : "flex flex-col gap-4"}>
-              {filtered.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  categoryNames={getCategoryNames(product, publicCategories)}
-                  navigate={navigate}
-                  onAddToQuote={onAddToQuote}
-                  isInQuote={quoteItemIds.includes(product.id)}
-                  isComparing={compareItems.includes(product.id)}
-                  onToggleCompare={(id) => setCompareItems((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])}
-                />
-              ))}
-            </div>
+          {products.length > 0 && syncStatus !== "loading" && syncStatus !== "error" && (
+            <p className="text-sm text-muted-foreground mb-6">{filtered.length} produto{filtered.length !== 1 ? "s" : ""} encontrado{filtered.length !== 1 ? "s" : ""}</p>
           )}
+          {catalogState}
         </div>
       </div>
 

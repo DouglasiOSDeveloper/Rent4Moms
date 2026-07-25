@@ -1,19 +1,13 @@
 import React, { useState } from "react";
-import {
-  Menu, X, ShoppingBag, Heart, Star, ChevronDown, ChevronRight, ChevronLeft,
-  ChevronUp, Search, Filter, MapPin, Calendar, Phone, Mail, Instagram,
-  MessageCircle, User, Settings, LogOut, Bell, Package, FileText, Truck,
-  Wrench, CheckCircle, Clock, AlertCircle, XCircle, Eye, Edit, Trash2,
-  Plus, Download, BarChart2, Users, DollarSign, TrendingUp, ArrowRight,
-  Shield, Leaf, Award, Info, Lock, Check, Home, List, Tag, Archive,
-  Layers, Droplets, Clipboard, Activity, Hash, RefreshCw, Upload,
-  MoreHorizontal, Minus, BookOpen, Globe, Zap
-} from "lucide-react";
+import { Star, ChevronRight, ChevronLeft, Calendar, User, Settings, LogOut, Package, FileText, Truck, Wrench, BarChart2, Users, TrendingUp, ArrowRight, Tag, Archive, Layers, Droplets, BookOpen, CircleHelp } from "lucide-react";
 import type { Page } from "../../domain/shared/types";
 import { cn } from "../../components/prototype/PrototypeUI";
+import { AdminNotifications } from "./notifications/AdminNotifications";
+import { AdminContextHelp } from "./help/AdminContextHelp";
 
-export function AdminLayout({ currentPage, navigate, onLogout, children }: {
+export function AdminLayout({ currentPage, navigate, onLogout, children, userName, userEmail }: {
   currentPage: Page; navigate: (p: Page) => void; onLogout: () => void; children: React.ReactNode;
+  userName?: string | undefined; userEmail?: string | undefined;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const menuGroups = [
@@ -47,6 +41,7 @@ export function AdminLayout({ currentPage, navigate, onLogout, children }: {
         { page: "admin-users" as Page, label: "Usuários", icon: <User size={16} /> },
         { page: "admin-content" as Page, label: "Conteúdo do site", icon: <BookOpen size={16} /> },
         { page: "admin-config" as Page, label: "Configurações", icon: <Settings size={16} /> },
+        { page: "admin-help" as Page, label: "Ajuda operacional", icon: <CircleHelp size={16} /> },
       ]
     }
   ];
@@ -93,8 +88,8 @@ export function AdminLayout({ currentPage, navigate, onLogout, children }: {
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 bg-sidebar-accent rounded-full flex items-center justify-center text-sidebar-foreground text-xs font-bold">A</div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-sidebar-foreground">Admin</p>
-                <p className="text-xs text-sidebar-foreground/50 truncate">admin@rent4moms.com</p>
+                <p className="text-xs font-medium text-sidebar-foreground">{userName || "Administrador"}</p>
+                {userEmail && <p className="text-xs text-sidebar-foreground/50 truncate">{userEmail}</p>}
               </div>
               <button onClick={onLogout} className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"><LogOut size={14} /></button>
             </div>
@@ -112,10 +107,8 @@ export function AdminLayout({ currentPage, navigate, onLogout, children }: {
             <p className="text-xs text-muted-foreground">Rent4Moms · {new Date().toLocaleDateString("pt-BR")}</p>
           </div>
           <div className="flex items-center gap-3">
-            <button type="button" aria-label="Notificações" className="relative p-2 text-muted-foreground hover:text-foreground">
-              <Bell size={18} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
-            </button>
+            <AdminContextHelp currentPage={currentPage} navigate={navigate} />
+            <AdminNotifications navigate={navigate} />
             <button onClick={() => navigate("home")} className="text-sm text-muted-foreground hover:text-foreground">Ver site <ArrowRight size={12} className="inline ml-1" /></button>
           </div>
         </header>

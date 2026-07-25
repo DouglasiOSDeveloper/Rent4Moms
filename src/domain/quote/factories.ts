@@ -1,5 +1,5 @@
 import type { Product } from "../shared/types";
-import { calculateRentalPrice } from "../pricing/pricingEngine";
+import { calculateRentalPrice, normalizeProductPeriodPricing } from "../pricing/pricingEngine";
 import { addDays } from "../../lib/dates";
 import type {
   AddProductToQuoteOptions,
@@ -52,7 +52,7 @@ export function createEmptyQuoteDraft(): QuoteDraft {
 
 export function createProductSnapshot(
   product: Product,
-  options: Pick<AddProductToQuoteOptions, "rates" | "description" | "photo" | "assembly"> = {},
+  options: Pick<AddProductToQuoteOptions, "rates" | "baseRates" | "componentRates" | "coverRates" | "reducerRates" | "periodPricing" | "description" | "photo" | "assembly"> = {},
 ): ProductSnapshot {
   return {
     id: product.id,
@@ -66,8 +66,37 @@ export function createProductSnapshot(
       weekly: product.priceWeekly,
       monthly: product.priceMonthly,
     },
-    assembly: options.assembly,
+    baseRates: options.baseRates ?? options.rates ?? {
+      daily: product.priceDaily,
+      weekly: product.priceWeekly,
+      monthly: product.priceMonthly,
+    },
+    componentRates: options.componentRates ?? [],
+    coverRates: options.coverRates ?? [],
+    reducerRates: options.reducerRates ?? [],
+    periodPricing: normalizeProductPeriodPricing(options.periodPricing ?? product.periodPricing),
+    ...(options.assembly ? { assembly: options.assembly } : {}),
   };
+}
+
+
+function pricingRatesFromSnapshot(snapshot: ProductSnapshot) {
+  const hasRoleSpecificRates = snapshot.coverRates !== undefined || snapshot.reducerRates !== undefined;
+  if (hasRoleSpecificRates) {
+    return {
+      componentRates: [],
+      coverRates: snapshot.coverRates ?? [],
+      reducerRates: snapshot.reducerRates ?? [],
+    };
+  }
+  if (snapshot.assembly) {
+    return {
+      componentRates: [],
+      coverRates: [snapshot.assembly.cover.priceAdjustment],
+      reducerRates: snapshot.assembly.reducer ? [snapshot.assembly.reducer.priceAdjustment] : [],
+    };
+  }
+  return { componentRates: snapshot.componentRates ?? [], coverRates: [], reducerRates: [] };
 }
 
 export function createQuoteItem(product: Product, options: AddProductToQuoteOptions = {}): QuoteItem {
@@ -76,6 +105,7 @@ export function createQuoteItem(product: Product, options: AddProductToQuoteOpti
   const startDate = options.startDate ?? "";
   const productSnapshot = createProductSnapshot(product, options);
 
+  const pricingRates = pricingRatesFromSnapshot(productSnapshot);
   return {
     id: product.id,
     productId: product.id,
@@ -85,7 +115,9 @@ export function createQuoteItem(product: Product, options: AddProductToQuoteOpti
     startDate,
     endDate: startDate ? addDays(startDate, periodDays) : "",
     priceSnapshot: calculateRentalPrice({
-      rates: productSnapshot.rates,
+      baseRates: productSnapshot.baseRates ?? productSnapshot.rates,
+      ...pricingRates,
+      periodPricing: productSnapshot.periodPricing,
       days: periodDays,
       quantity,
     }),
@@ -100,6 +132,7 @@ export function repriceQuoteItem(
   const quantity = Math.max(1, Math.trunc(patch.quantity ?? item.quantity));
   const startDate = patch.startDate ?? item.startDate;
 
+  const pricingRates = pricingRatesFromSnapshot(item.productSnapshot);
   return {
     ...item,
     periodDays,
@@ -107,7 +140,9 @@ export function repriceQuoteItem(
     startDate,
     endDate: startDate ? addDays(startDate, periodDays) : "",
     priceSnapshot: calculateRentalPrice({
-      rates: item.productSnapshot.rates,
+      baseRates: item.productSnapshot.baseRates ?? item.productSnapshot.rates,
+      ...pricingRates,
+      periodPricing: item.productSnapshot.periodPricing,
       days: periodDays,
       quantity,
     }),

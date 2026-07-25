@@ -22,9 +22,9 @@ export function Footer({ navigate }: { navigate: (page: Page) => void }) {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white text-xs font-bold">R4</span></div>
-              <span style={{ fontFamily: "'DM Serif Display', serif" }} className="text-lg text-white">{siteSettings.brand.name}</span>
+              <span style={{ fontFamily: "'DM Serif Display', serif" }} className="text-lg text-white">{siteSettings.brand.name || "Rent4Moms"}</span>
             </div>
-            <p className="text-sm text-[#C4AFA6] leading-relaxed mb-4">{siteSettings.brand.description}</p>
+            {siteSettings.brand.description && <p className="text-sm text-[#C4AFA6] leading-relaxed mb-4">{siteSettings.brand.description}</p>}
             <div className="flex flex-wrap gap-3">
               {socialLinks.map((item) => (
                 <a key={item.key} href={item.url} target="_blank" rel="noreferrer" aria-label={item.label} title={item.label}
@@ -59,10 +59,10 @@ export function Footer({ navigate }: { navigate: (page: Page) => void }) {
           <div>
             <p className="font-semibold text-white mb-4">Atendimento</p>
             <div className="flex flex-col gap-2.5 text-sm text-[#C4AFA6]">
-              <p className="flex items-center gap-2"><Phone size={14} />{siteSettings.contact.phone}</p>
-              <p className="flex items-center gap-2"><Mail size={14} />{siteSettings.contact.email}</p>
-              <p className="flex items-start gap-2"><MapPin size={14} className="mt-0.5 shrink-0" />Área de atendimento: {siteSettings.contact.serviceRegion}</p>
-              {siteSettings.footer.showAddress && <p className="flex items-start gap-2"><MapPin size={14} className="mt-0.5 shrink-0" />{siteSettings.contact.address}</p>}
+              {hasConfiguredValue(siteSettings.contact.phone) && <p className="flex items-center gap-2"><Phone size={14} />{siteSettings.contact.phone}</p>}
+              {hasConfiguredValue(siteSettings.contact.email) && <p className="flex items-center gap-2"><Mail size={14} />{siteSettings.contact.email}</p>}
+              {hasConfiguredValue(siteSettings.contact.serviceRegion) && <p className="flex items-start gap-2"><MapPin size={14} className="mt-0.5 shrink-0" />Área de atendimento: {siteSettings.contact.serviceRegion}</p>}
+              {siteSettings.footer.showAddress && hasConfiguredValue(siteSettings.contact.address) && <p className="flex items-start gap-2"><MapPin size={14} className="mt-0.5 shrink-0" />{siteSettings.contact.address}</p>}
               {siteSettings.businessHours.map((entry) => (
                 <p key={entry.id} className="flex items-start gap-2"><Clock size={14} className="mt-0.5 shrink-0" /><span>{entry.label}: {entry.closed ? "Fechado" : `${entry.startTime}–${entry.endTime}`}</span></p>
               ))}
@@ -72,7 +72,7 @@ export function Footer({ navigate }: { navigate: (page: Page) => void }) {
                 </a>
               )}
             </div>
-            {siteSettings.footer.showCnpj && <p className="mt-4 text-xs text-[#8A7B72]">CNPJ: {siteSettings.contact.cnpj}</p>}
+            {siteSettings.footer.showCnpj && hasConfiguredValue(siteSettings.contact.cnpj) && <p className="mt-4 text-xs text-[#8A7B72]">CNPJ: {siteSettings.contact.cnpj}</p>}
           </div>
 
           <div>
@@ -83,7 +83,7 @@ export function Footer({ navigate }: { navigate: (page: Page) => void }) {
               ))}
               {legalPages.length === 0 && <span className="text-sm text-[#8A7B72]">Conteúdos legais em preparação.</span>}
             </div>
-            <p className="mt-6 text-xs text-[#8A7B72]">{replaceYearToken(siteSettings.footer.copyrightText)}</p>
+            {siteSettings.footer.copyrightText && <p className="mt-6 text-xs text-[#8A7B72]">{replaceYearToken(siteSettings.footer.copyrightText)}</p>}
           </div>
         </div>
         {siteSettings.footer.legalDisclaimer && (

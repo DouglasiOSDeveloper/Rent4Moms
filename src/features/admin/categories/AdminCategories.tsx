@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { CheckCircle, Edit, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { CheckCircle, Edit, Plus, Search, Trash2, X } from "lucide-react";
 import type { Category, CategoryInput } from "../../../domain/catalog/types";
 import { Btn, Input, cn } from "../../../components/prototype/PrototypeUI";
+import { EmptyState, ErrorState, LoadingState } from "../../../components/states/DataState";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
 
 const COLOR_OPTIONS = [
@@ -27,7 +28,8 @@ export function AdminCategories() {
     createCategory,
     updateCategory,
     deleteCategory,
-    resetCatalog,
+    syncStatus,
+    refreshCatalog,
   } = useCatalog();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Category | null>(null);
@@ -35,6 +37,7 @@ export function AdminCategories() {
   const [modalOpen, setModalOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const filtered = useMemo(() => {
     const normalized = search.toLowerCase();
@@ -65,25 +68,38 @@ export function AdminCategories() {
     setModalOpen(true);
   };
 
-  const saveCategory = () => {
+  const saveCategory = async () => {
     if (!form.name.trim()) {
       setError("Informe o nome da categoria.");
       return;
     }
-
-    if (editing) updateCategory(editing.id, form);
-    else createCategory(form);
-
-    setModalOpen(false);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2000);
+    setSaving(true);
+    setError("");
+    try {
+      if (editing) await updateCategory(editing.id, form);
+      else await createCategory(form);
+      setModalOpen(false);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2000);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Não foi possível salvar a categoria.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (category: Category) => {
-    const linkedText = allCategoriesWithCount.find((item) => item.id === category.id)?.productCount
-      ? " Os vínculos com produtos também serão removidos."
-      : "";
-    if (window.confirm(`Excluir a categoria “${category.name}”?${linkedText}`)) deleteCategory(category.id);
+  const handleDelete = async (category: Category) => {
+    if (!window.confirm(`Arquivar a categoria “${category.name}”?`)) return;
+    try {
+      const result = await deleteCategory(category.id);
+      if (result.ok) return;
+      const details = result.impact?.dependencies.map((item) => `• ${item.label}: ${item.relation}`).join("\n") ?? result.reason ?? "";
+      if (window.confirm(`A categoria possui vínculos:\n${details}\n\nDeseja remover os vínculos e arquivar a categoria?`)) {
+        await deleteCategory(category.id, "deactivate_dependents");
+      }
+    } catch (deleteError) {
+      window.alert(deleteError instanceof Error ? deleteError.message : "Não foi possível excluir a categoria.");
+    }
   };
 
   return (
@@ -93,21 +109,16 @@ export function AdminCategories() {
           <h1 className="text-xl font-semibold text-foreground">Categorias</h1>
           <p className="text-sm text-muted-foreground mt-1">As alterações aparecem imediatamente na Home e no catálogo.</p>
         </div>
-        <div className="flex gap-2">
-          <Btn variant="outline" size="sm" onClick={() => {
-            if (window.confirm("Restaurar categorias e vínculos demonstrativos originais?")) resetCatalog();
-          }}><RotateCcw size={14} />Restaurar dados</Btn>
-          <Btn variant="primary" size="sm" onClick={openCreate}><Plus size={14} />Nova categoria</Btn>
-        </div>
+        <Btn variant="primary" size="sm" onClick={openCreate} disabled={syncStatus === "loading" || syncStatus === "error"}><Plus size={14} />Nova categoria</Btn>
       </div>
 
       {saved && (
         <div className="mb-4 flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded-lg w-fit">
-          <CheckCircle size={14} />Categoria salva e publicada no catálogo local.
+          <CheckCircle size={14} />Categoria salva no catálogo persistido.
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-border">
+      {syncStatus === "loading" ? <LoadingState title="Carregando categorias" /> : syncStatus === "error" ? <ErrorState title="Não foi possível carregar as categorias" description="Nenhuma categoria fictícia foi exibida." onRetry={() => void refreshCatalog()} /> : allCategoriesWithCount.length === 0 ? <EmptyState title="Nenhuma categoria cadastrada" description="Use “Nova categoria” para criar o primeiro registro real." /> : <div className="bg-white rounded-xl border border-border">
         <div className="p-4 border-b border-border">
           <div className="relative max-w-md">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -159,7 +170,7 @@ export function AdminCategories() {
         <div className="p-4 border-t border-border text-sm text-muted-foreground">
           {filtered.length} categoria{filtered.length !== 1 ? "s" : ""}
         </div>
-      </div>
+      </div>}
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
@@ -193,7 +204,7 @@ export function AdminCategories() {
 
             <div className="flex gap-3 mt-6 justify-end">
               <Btn variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Btn>
-              <Btn variant="primary" onClick={saveCategory}>Salvar categoria</Btn>
+              <Btn variant="primary" onClick={() => void saveCategory()} disabled={saving}>{saving ? "Salvando..." : "Salvar categoria"}</Btn>
             </div>
           </div>
         </div>

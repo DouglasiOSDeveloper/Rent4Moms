@@ -101,14 +101,14 @@ export interface PublicLegalPage {
 }
 
 export interface PublicSiteContent {
-  siteSettings: SiteSettingsDocument;
+  siteSettings: SiteSettingsDocument | null;
   legalPages: PublicLegalPage[];
 }
 
 export interface AdminContentSnapshot {
-  siteSettings: SiteSettingsDocument;
+  siteSettings: SiteSettingsDocument | null;
   legalPages: LegalPageAdmin[];
-  integrations: IntegrationSettingsDocument;
+  integrations: IntegrationSettingsDocument | null;
 }
 
 export const LEGAL_PATHS: Record<string, string> = {

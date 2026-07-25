@@ -25,7 +25,18 @@ export async function createSupportRequest(quoteId: string, input: { subject: st
   return (await apiRequest<{ supportRequest: SupportRequest }>(`/account/orders/${quoteId}/support`, { method: "POST", body: JSON.stringify(input) })).supportRequest;
 }
 export async function listPublishedProductReviews(productId: string): Promise<ProductReviewsResponse> {
-  return await apiRequest<ProductReviewsResponse>(`/products/${productId}/reviews`);
+  const response = await apiRequest<Partial<ProductReviewsResponse>>(`/products/${productId}/reviews`);
+  const summary = response.summary;
+
+  return {
+    reviews: Array.isArray(response.reviews) ? response.reviews : [],
+    summary: {
+      rating: typeof summary?.rating === "number" && Number.isFinite(summary.rating) ? summary.rating : 0,
+      reviewCount: typeof summary?.reviewCount === "number" && Number.isFinite(summary.reviewCount)
+        ? Math.max(0, Math.trunc(summary.reviewCount))
+        : 0,
+    },
+  };
 }
 export async function loadCustomerExperienceAdminQueue(): Promise<CustomerExperienceAdminQueue> {
   return await apiRequest<CustomerExperienceAdminQueue>("/admin/customer-experience");

@@ -1,5 +1,12 @@
 import type { DeliverySettings, DeliverySlot } from "./types";
 
+export const UNCONFIGURED_DELIVERY_SETTINGS: DeliverySettings = {
+  startTime: "00:00",
+  endTime: "00:00",
+  slotMinutes: 30,
+  timeZone: "America/Sao_Paulo",
+};
+
 export const DEFAULT_DELIVERY_SETTINGS: DeliverySettings = {
   startTime: "10:00",
   endTime: "18:00",

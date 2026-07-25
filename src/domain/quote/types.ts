@@ -1,6 +1,7 @@
 import type { AssemblyAngle } from "../catalog/types";
-import type { RentalPriceBreakdown, RentalRateTable } from "../pricing/types";
+import type { ProductPeriodPricing, RentalPriceBreakdown, RentalRateTable } from "../pricing/types";
 import type { Product } from "../shared/types";
+import type { ShippingEstimate } from "../shipping/types";
 
 export type FulfillmentMethod = "delivery" | "pickup" | "arrange";
 export type ShippingQuoteStatus = "not_requested" | "calculated" | "unavailable";
@@ -40,6 +41,11 @@ export interface ProductSnapshot {
   photo: string;
   description: string;
   rates: RentalRateTable;
+  baseRates?: RentalRateTable;
+  componentRates?: RentalRateTable[];
+  coverRates?: RentalRateTable[];
+  reducerRates?: RentalRateTable[];
+  periodPricing?: ProductPeriodPricing;
   assembly?: QuoteAssemblySnapshot;
 }
 
@@ -89,6 +95,15 @@ export interface QuoteShippingQuote {
   status: ShippingQuoteStatus;
   amountCents: number;
   cep: string;
+  provider?: string;
+  formulaVersion?: "distance-fuel-v1";
+  originLabel?: string;
+  oneWayDistanceKm?: number;
+  chargedDistanceKm?: number;
+  durationSeconds?: number | null;
+  fuelLiters?: number;
+  parameters?: ShippingEstimate["parameters"];
+  calculatedAt?: string;
 }
 
 export interface QuoteDraft {
@@ -111,8 +126,13 @@ export interface AddProductToQuoteOptions {
   fulfillment?: FulfillmentMethod;
   deliverySlot?: string;
   cep?: string;
-  shippingAmountCents?: number | null;
+  shippingEstimate?: ShippingEstimate | null;
   rates?: RentalRateTable;
+  baseRates?: RentalRateTable;
+  componentRates?: RentalRateTable[];
+  coverRates?: RentalRateTable[];
+  reducerRates?: RentalRateTable[];
+  periodPricing?: ProductPeriodPricing;
   description?: string;
   photo?: string;
   assembly?: QuoteAssemblySnapshot;
@@ -140,7 +160,7 @@ export interface QuoteStoreValue {
   updateFulfillment: (fulfillment: FulfillmentMethod) => void;
   updateDeliverySlot: (deliverySlot: string) => void;
   updateAddress: (patch: Partial<QuoteAddress>) => void;
-  updateShippingQuote: (amountCents: number | null, cep: string) => void;
+  updateShippingQuote: (estimate: ShippingEstimate | null, cep: string) => void;
   updateCustomerData: (patch: Partial<QuoteCustomerData>) => void;
   updateAdditionalInfo: (patch: Partial<QuoteAdditionalInfo>) => void;
   updateConsents: (patch: Partial<QuoteConsents>) => void;

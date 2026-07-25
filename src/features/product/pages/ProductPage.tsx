@@ -16,6 +16,7 @@ import {
   Truck,
 } from "lucide-react";
 import { DeliverySlotSelect } from "../../../components/forms/DeliverySlotSelect";
+import { EmptyState, ErrorState, LoadingState } from "../../../components/states/DataState";
 import { MaskedInput } from "../../../components/forms/MaskedInput";
 import { ProductCard } from "../../../components/prototype/ProductCard";
 import { AvailabilityBadge, Btn, Input, cn } from "../../../components/prototype/PrototypeUI";
@@ -35,53 +36,90 @@ import { getCategoryNames, productsShareCategory } from "../../../domain/catalog
 import type { AssemblyAngle } from "../../../domain/catalog/types";
 import { isDeliverySlotAvailable } from "../../../domain/delivery/slots";
 import type { DeliverySettings } from "../../../domain/delivery/types";
-import { calculateRentalPrice } from "../../../domain/pricing/pricingEngine";
+import { calculateRentalPrice, normalizeProductPeriodPricing } from "../../../domain/pricing/pricingEngine";
+import type { RentalPriceBreakdown } from "../../../domain/pricing/types";
 import type { AddProductToQuoteOptions, FulfillmentMethod, QuoteAssemblySnapshot, QuoteItem } from "../../../domain/quote/types";
-import type { Page, Product, ShippingZone } from "../../../domain/shared/types";
-import { calculateShippingByCep } from "../../../domain/shipping/shippingCalculator";
+import type { Page, Product } from "../../../domain/shared/types";
+import type { ShippingEstimate } from "../../../domain/shipping/types";
 import { addDays, formatDateBR, getTomorrowIsoDate, isIsoDateOnOrAfter } from "../../../lib/dates";
 import { maskCep } from "../../../lib/masks";
 import { formatMoneyFromCents } from "../../../lib/money";
+import { buildWhatsAppUrl } from "../../../lib/contact";
 import { isValidCep } from "../../../lib/validators";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
+import { useSiteContent } from "../../../stores/content/SiteContentProvider";
 import type { ProductReview, ProductReviewsResponse } from "../../../domain/customerExperience/types";
 import { listPublishedProductReviews } from "../../../services/customerExperience/customerExperienceApi";
+import { estimateRemotePricing } from "../../../services/pricing/pricingApi";
+import { estimateRemoteShipping } from "../../../services/shipping/shippingApi";
 
 function priceAdjustmentLabel(monthly: number): string {
   if (monthly <= 0) return "Sem acréscimo";
-  return `+ ${formatMoneyFromCents(Math.round(monthly * 100))} / 30 dias`;
+  return `+ ${formatMoneyFromCents(Math.round(monthly * 100))} por 30 dias`;
+}
+
+function reducerPriceAdjustmentLabel(monthly: number): string {
+  if (monthly <= 0) return "Sem acréscimo";
+  return `+ ${formatMoneyFromCents(Math.round(monthly * 100))} em 30 dias · grátis em 60/90 dias`;
+}
+
+
+interface DisplayGalleryImage {
+  id: string;
+  url: string;
+  alt: string;
+  label: string;
+  angle?: AssemblyAngle;
+  source: "variant" | "model" | "product" | "fallback";
 }
 
 function ProductReviewsPanel({ rating, reviewCount, reviews, loading }: { rating: number; reviewCount: number; reviews: ProductReview[]; loading: boolean }) {
   return <div className="max-w-2xl"><div className="flex items-center gap-6 mb-8 p-6 bg-secondary rounded-2xl border border-border"><div className="text-center"><p className="text-5xl font-bold text-foreground">{rating || "—"}</p><div className="flex gap-0.5 mt-1 justify-center text-amber-400">{[...Array(5)].map((_, index) => <Star key={index} size={14} fill={index < Math.floor(rating) ? "currentColor" : "none"} />)}</div><p className="text-xs text-muted-foreground mt-1">{reviewCount} avaliações</p></div></div>{loading ? <p className="text-sm text-muted-foreground">Carregando avaliações...</p> : reviews.length ? <div className="flex flex-col gap-4">{reviews.map((review) => <div key={review.id} className="bg-card rounded-xl border border-border p-4"><div className="flex gap-0.5 mb-2 text-amber-400">{[...Array(5)].map((_, star) => <Star key={star} size={12} fill={star < review.rating ? "currentColor" : "none"} />)}</div><p className="text-sm text-muted-foreground mb-2">“{review.comment}”</p><p className="text-xs font-medium text-foreground">{review.customerDisplayName} · {new Date(review.createdAt).toLocaleDateString("pt-BR")}</p></div>)}</div> : <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Ainda não há avaliações reais para este produto.</div>}</div>;
 }
 
-export function ProductPage({
-  productId,
+interface ProductPageProps {
+  productId: string;
+  navigate: (p: Page, params?: Record<string, string>) => void;
+  onAddToQuote: (product: Product, options?: AddProductToQuoteOptions) => void;
+  quoteItemIds: string[];
+  deliverySettings: DeliverySettings;
+  existingItem?: QuoteItem | undefined;
+  initialFulfillment: FulfillmentMethod;
+  initialCep: string;
+  initialDeliverySlot: string;
+}
+
+export function ProductPage(props: ProductPageProps) {
+  const { getProduct, syncStatus, refreshCatalog } = useCatalog();
+  const product = getProduct(props.productId);
+
+  if (syncStatus === "loading") {
+    return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16"><LoadingState title="Carregando produto" description="Consultando o catálogo publicado." /></div>;
+  }
+  if (syncStatus === "error") {
+    return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16"><ErrorState title="Não foi possível carregar o produto" description="Nenhum produto fictício foi utilizado como substituição." onRetry={() => void refreshCatalog()} /></div>;
+  }
+  if (!product) {
+    return <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16"><EmptyState title="Produto não encontrado" description="Este produto não está cadastrado ou publicado." actionLabel="Voltar ao catálogo" onAction={() => props.navigate("catalog")} /></div>;
+  }
+
+  return <ProductPageContent {...props} product={product} />;
+}
+
+function ProductPageContent({
+  product,
   navigate,
   onAddToQuote,
   quoteItemIds,
-  shippingZones,
   deliverySettings,
   existingItem,
   initialFulfillment,
   initialCep,
   initialDeliverySlot,
-}: {
-  productId: string;
-  navigate: (p: Page, params?: Record<string, string>) => void;
-  onAddToQuote: (product: Product, options?: AddProductToQuoteOptions) => void;
-  quoteItemIds: string[];
-  shippingZones: ShippingZone[];
-  deliverySettings: DeliverySettings;
-  existingItem?: QuoteItem;
-  initialFulfillment: FulfillmentMethod;
-  initialCep: string;
-  initialDeliverySlot: string;
-}) {
+}: ProductPageProps & { product: Product }) {
   const catalog = useCatalog();
-  const { products, publicCategories, getProduct } = catalog;
-  const product = getProduct(productId) ?? products[0];
+  const { siteSettings } = useSiteContent();
+  const { products, publicCategories } = catalog;
   const categoryNames = getCategoryNames(product, publicCategories);
   const chairModel = getChairModelByProductId(catalog, product.id);
   const existingAssembly = existingItem?.productSnapshot.assembly;
@@ -102,6 +140,11 @@ export function ProductPage({
   const [selectedAngle, setSelectedAngle] = useState<AssemblyAngle>(existingAssembly?.selectedAngle ?? "FRT");
   const [reviewData, setReviewData] = useState<ProductReviewsResponse>({ reviews: [], summary: { rating: 0, reviewCount: 0 } });
   const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [officialPriceEstimate, setOfficialPriceEstimate] = useState<RentalPriceBreakdown | null>(null);
+  const [pricingPending, setPricingPending] = useState(false);
+  const [shippingEstimate, setShippingEstimate] = useState<ShippingEstimate | null>(null);
+  const [shippingPending, setShippingPending] = useState(false);
+  const [shippingMessage, setShippingMessage] = useState("");
 
   useEffect(() => {
     setSelectedCoverId(existingAssembly?.cover.id ?? null);
@@ -122,6 +165,10 @@ export function ProductPage({
 
   const displayRating = reviewData.summary.rating;
   const displayReviewCount = reviewData.summary.reviewCount;
+  const productWhatsAppUrl = buildWhatsAppUrl(
+    siteSettings.contact.whatsapp,
+    `Olá, gostaria de saber mais sobre o produto ${product.name} para ${period ? `${period} dias` : "período a definir"}.`,
+  );
 
   const compatibleCovers = useMemo(
     () => chairModel ? getCompatibleCovers(catalog, chairModel.id) : [],
@@ -138,11 +185,16 @@ export function ProductPage({
     ? getAssemblyVariant(catalog, chairModel.id, selectedCover.id, selectedReducer?.id ?? null)
     : undefined;
 
-  const configuredRates = useMemo(() => sumRentalRates(
-    { daily: product.priceDaily, weekly: product.priceWeekly, monthly: product.priceMonthly },
-    selectedCover?.priceAdjustment ?? { daily: 0, weekly: 0, monthly: 0 },
-    selectedReducer?.priceAdjustment ?? { daily: 0, weekly: 0, monthly: 0 },
-  ), [product.priceDaily, product.priceWeekly, product.priceMonthly, selectedCover, selectedReducer]);
+  const baseRates = useMemo(() => ({
+    daily: product.priceDaily,
+    weekly: product.priceWeekly,
+    monthly: product.priceMonthly,
+  }), [product.priceDaily, product.priceWeekly, product.priceMonthly]);
+  const periodPricing = useMemo(() => normalizeProductPeriodPricing(product.periodPricing), [product.periodPricing]);
+  const coverRates = useMemo(() => selectedCover ? [selectedCover.priceAdjustment] : [], [selectedCover]);
+  const reducerRates = useMemo(() => selectedReducer ? [selectedReducer.priceAdjustment] : [], [selectedReducer]);
+  const componentRates = useMemo(() => [...coverRates, ...reducerRates], [coverRates, reducerRates]);
+  const configuredRates = useMemo(() => sumRentalRates(baseRates, ...componentRates), [baseRates, componentRates]);
 
   const composedDescription = composeConfigurationDescription(
     chairModel?.description ?? product.description,
@@ -162,18 +214,124 @@ export function ProductPage({
 
   const minimumStartDate = getTomorrowIsoDate(deliverySettings.timeZone);
   const endDate = useMemo(() => period && startDate ? addDays(startDate, period) : "", [startDate, period]);
-  const shippingCost = useMemo(() => {
-    if (delivery !== "delivery" || !isValidCep(cep)) return null;
-    return calculateShippingByCep(cep, shippingZones);
-  }, [cep, delivery, shippingZones]);
-  const priceEstimate = useMemo(() => period ? calculateRentalPrice({ rates: configuredRates, days: period, quantity: qty }) : null, [period, configuredRates, qty]);
-  const totalEstimateCents = (priceEstimate?.totalCents ?? 0)
-    + (delivery === "delivery" && shippingCost !== null ? Math.round(shippingCost * 100) : 0);
+  useEffect(() => {
+    let active = true;
+    if (delivery !== "delivery" || !isValidCep(cep)) {
+      setShippingEstimate(null);
+      setShippingPending(false);
+      setShippingMessage("");
+      return () => { active = false; };
+    }
+    setShippingEstimate(null);
+    setShippingPending(true);
+    setShippingMessage("");
+    const timer = window.setTimeout(() => {
+      void estimateRemoteShipping({
+        cep,
+        street: "",
+        number: "",
+        complement: "",
+        district: "",
+        city: "",
+        state: "",
+      })
+        .then((estimate) => { if (active) setShippingEstimate(estimate); })
+        .catch((error: unknown) => {
+          if (!active) return;
+          setShippingEstimate(null);
+          setShippingMessage(error instanceof Error ? error.message : "Não foi possível calcular o frete.");
+        })
+        .finally(() => { if (active) setShippingPending(false); });
+    }, 350);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [cep, delivery]);
+  const shippingCostCents = shippingEstimate?.amountCents ?? null;
+  const localPriceEstimate = useMemo(() => period ? calculateRentalPrice({ baseRates, coverRates, reducerRates, periodPricing, days: period, quantity: qty }) : null, [period, baseRates, coverRates, reducerRates, periodPricing, qty]);
 
-  const galleryImages = variant?.images ?? [];
-  const activeAssemblyImage = galleryImages.find((image) => image.angle === selectedAngle) ?? galleryImages[0];
-  const activeImageUrl = activeAssemblyImage ? resolveAssemblyImageUrl(activeAssemblyImage) : product.photo;
-  const activeImageAlt = activeAssemblyImage?.alt ?? product.name;
+  useEffect(() => {
+    let active = true;
+    if (!period || (chairModel && (!selectedCover || !ballSet || !variant))) {
+      setOfficialPriceEstimate(null);
+      setPricingPending(false);
+      return () => { active = false; };
+    }
+    setPricingPending(true);
+    estimateRemotePricing({
+      productId: product.id,
+      periodDays: period,
+      quantity: qty,
+      ...(chairModel && selectedCover && ballSet && variant ? {
+        configuration: {
+          chairModelId: chairModel.id,
+          variantId: variant.id,
+          coverId: selectedCover.id,
+          reducerId: selectedReducer?.id ?? null,
+          ballSetId: ballSet.id,
+        },
+      } : {}),
+    })
+      .then((response) => { if (active) setOfficialPriceEstimate(response.pricing); })
+      .catch(() => { if (active) setOfficialPriceEstimate(null); })
+      .finally(() => { if (active) setPricingPending(false); });
+    return () => { active = false; };
+  }, [period, qty, product.id, chairModel, selectedCover, selectedReducer, ballSet, variant]);
+
+  const priceEstimate = officialPriceEstimate ?? localPriceEstimate;
+  const totalEstimateCents = (priceEstimate?.totalCents ?? 0)
+    + (delivery === "delivery" && shippingCostCents !== null ? shippingCostCents : 0);
+
+  const variantGalleryImages = (variant?.images ?? []).filter(
+    (image) => image.isVisible && Boolean(resolveAssemblyImageUrl(image)),
+  );
+  const modelGalleryImages = (chairModel?.images ?? []).filter((image) => Boolean(image.url));
+  const productGalleryImages = (product.images ?? []).filter((image) => Boolean(image.url));
+  const displayGallery = useMemo<DisplayGalleryImage[]>(() => {
+    if (variantGalleryImages.length > 0) {
+      return variantGalleryImages.map((image) => ({
+        id: image.id,
+        url: resolveAssemblyImageUrl(image),
+        alt: image.alt || product.name,
+        label: `${image.angle} · ${getAngleLabel(image.angle, image.angleLabel)}`,
+        angle: image.angle,
+        source: "variant" as const,
+      }));
+    }
+    const genericImages = modelGalleryImages.length > 0 ? modelGalleryImages : productGalleryImages;
+    const source = modelGalleryImages.length > 0 ? "model" as const : "product" as const;
+    if (genericImages.length > 0) {
+      return genericImages.map((image, index) => ({
+        id: image.id,
+        url: image.url,
+        alt: image.alt || product.name,
+        label: image.angle
+          ? `${image.angle} · ${getAngleLabel(image.angle, image.angleLabel)}`
+          : image.alt || image.originalName || `Imagem ${index + 1}`,
+        angle: image.angle,
+        source,
+      }));
+    }
+    const fallbackUrl = chairModel?.defaultImage || product.photo || "";
+    return fallbackUrl ? [{ id: `${product.id}-fallback`, url: fallbackUrl, alt: product.name, label: "Imagem principal", source: "fallback" as const }] : [];
+  }, [variantGalleryImages, modelGalleryImages, productGalleryImages, chairModel?.defaultImage, product.photo, product.id, product.name]);
+  const gallerySignature = displayGallery.map((image) => image.id).join("|");
+  const [selectedGalleryImageId, setSelectedGalleryImageId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const angleMatch = displayGallery.find((image) => image.angle === selectedAngle);
+    const currentExists = displayGallery.some((image) => image.id === selectedGalleryImageId);
+    if (!currentExists) setSelectedGalleryImageId((angleMatch ?? displayGallery[0])?.id ?? null);
+  }, [gallerySignature, displayGallery, selectedAngle, selectedGalleryImageId]);
+
+  const activeGalleryImage = displayGallery.find((image) => image.id === selectedGalleryImageId) ?? displayGallery[0];
+  const activeAssemblyImage = activeGalleryImage?.source === "variant"
+    ? variantGalleryImages.find((image) => image.id === activeGalleryImage.id)
+    : undefined;
+
+  useEffect(() => {
+    if (activeAssemblyImage && activeAssemblyImage.angle !== selectedAngle) setSelectedAngle(activeAssemblyImage.angle);
+  }, [activeAssemblyImage, selectedAngle]);
+  const activeImageUrl = activeGalleryImage?.url ?? "";
+  const activeImageAlt = activeGalleryImage?.alt ?? product.name;
   const canAddConfiguredProduct = !chairModel || Boolean(selectedCover && variant && ballSet && availableQuantity >= qty && availableQuantity > 0);
 
   const tabs = [
@@ -194,7 +352,8 @@ export function ProductPage({
     if (!canAddConfiguredProduct) nextErrors.configuration = "A composição selecionada não está disponível.";
     if (delivery === "delivery") {
       if (!isValidCep(cep)) nextErrors.cep = "Informe um CEP válido com 8 dígitos.";
-      else if (shippingCost === null) nextErrors.cep = "Este CEP ainda não possui entrega disponível.";
+      else if (shippingPending) nextErrors.cep = "Aguarde o cálculo do frete.";
+      else if (shippingEstimate === null) nextErrors.cep = shippingMessage || "Não foi possível calcular a entrega para este CEP.";
       if (!deliverySlot) nextErrors.deliverySlot = "Selecione o horário para receber a entrega.";
       else if (!isDeliverySlotAvailable(deliverySlot, deliverySettings)) nextErrors.deliverySlot = "O horário escolhido não está disponível.";
     }
@@ -229,102 +388,34 @@ export function ProductPage({
           name: ballSet.name,
           description: ballSet.description,
         },
-        selectedAngle,
+        selectedAngle: activeAssemblyImage.angle,
         selectedImage: activeImageUrl,
         availableQuantity,
       };
     }
 
-    onAddToQuote(product, {
+    const quoteOptions: AddProductToQuoteOptions = {
       periodDays: period,
       startDate,
       quantity: qty,
       fulfillment: delivery,
       deliverySlot: delivery === "delivery" ? deliverySlot : "",
       cep,
-      shippingAmountCents: delivery === "delivery"
-        ? (shippingCost === null ? null : Math.round(shippingCost * 100))
-        : 0,
+      shippingEstimate: delivery === "delivery" ? shippingEstimate : null,
       rates: configuredRates,
+      baseRates,
+      componentRates,
+      coverRates,
+      reducerRates,
+      periodPricing,
       description: composedDescription,
       photo: activeImageUrl,
-      assembly,
-    });
+      ...(assembly ? { assembly } : {}),
+    };
+    onAddToQuote(product, quoteOptions);
   };
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-        <button onClick={() => navigate("home")} className="hover:text-foreground">Início</button>
-        <ChevronRight size={14} />
-        <button onClick={() => navigate("catalog")} className="hover:text-foreground">Produtos</button>
-        <ChevronRight size={14} />
-        <span className="text-foreground">{product.name}</span>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-12 mb-16">
-        <div>
-          <div className="relative rounded-2xl overflow-hidden bg-secondary mb-4 border border-border">
-            <img src={activeImageUrl} alt={activeImageAlt} className="w-full h-96 object-cover" />
-            <div className="absolute top-4 left-4 flex flex-col gap-2">
-              <span className="bg-accent text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1"><Droplets size={10} />Higienizado</span>
-              <span className="bg-primary text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1"><Shield size={10} />Revisado</span>
-            </div>
-            <div className="absolute top-4 right-4"><AvailabilityBadge status={availableQuantity === 0 ? "unavailable" : product.status} /></div>
-            {variant && <span className="absolute bottom-4 left-4 bg-white/90 border border-border text-xs px-2 py-1 rounded-lg text-foreground">{variant.id} · {variant.prefix}</span>}
-          </div>
-          {galleryImages.length > 0 ? (
-            <div className="grid grid-cols-4 gap-3">
-              {galleryImages.map((image) => (
-                <button
-                  key={image.angle}
-                  type="button"
-                  onClick={() => setSelectedAngle(image.angle)}
-                  className={cn(
-                    "rounded-xl overflow-hidden border-2 text-left transition-colors bg-card",
-                    selectedAngle === image.angle ? "border-primary" : "border-border hover:border-primary/50",
-                  )}
-                >
-                  <img src={resolveAssemblyImageUrl(image)} alt={image.alt} className="w-full h-20 object-cover" />
-                  <span className="block px-2 py-1 text-xs text-center text-foreground">{image.angle} · {getAngleLabel(image.angle)}</span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="flex gap-3">
-              <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-primary">
-                <img src={product.photo} alt={`Imagem padrão de ${product.name}`} className="w-full h-full object-cover" />
-              </div>
-              {chairModel && <p className="text-sm text-muted-foreground self-center max-w-sm">Imagem padrão do modelo. Selecione um pano para visualizar a montagem nas quatro angulações.</p>}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-6">
-          <div>
-            <div className="flex items-center gap-2 mb-2 flex-wrap">
-              {(categoryNames.length ? categoryNames : ["Sem categoria"]).map((categoryName) => (
-                <span key={categoryName} className="text-xs bg-secondary border border-border px-2 py-0.5 rounded-full text-muted-foreground">{categoryName}</span>
-              ))}
-              <span className="text-xs text-muted-foreground">Cód. {product.id.toUpperCase()}</span>
-            </div>
-            <h1 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-3xl text-foreground mb-1">{product.name}</h1>
-            <p className="text-muted-foreground">{product.brand} · {product.model}</p>
-            <div className="flex items-center gap-2 mt-2">
-              <div className="flex items-center gap-1 text-amber-400">
-                {[...Array(5)].map((_, index) => <Star key={index} size={14} fill={index < Math.floor(displayRating) ? "currentColor" : "none"} />)}
-              </div>
-              <span className="text-sm text-muted-foreground">{displayRating} ({displayReviewCount} avaliações)</span>
-            </div>
-          </div>
-
-          <div className="flex gap-4 text-sm flex-wrap">
-            <div className="bg-secondary rounded-xl px-4 py-2 text-center"><p className="text-muted-foreground text-xs">Idade</p><p className="font-medium text-foreground">{product.ageMin} – {product.ageMax}</p></div>
-            <div className="bg-secondary rounded-xl px-4 py-2 text-center"><p className="text-muted-foreground text-xs">Peso máximo</p><p className="font-medium text-foreground">{product.weightMax}</p></div>
-            <div className="bg-secondary rounded-xl px-4 py-2 text-center"><p className="text-muted-foreground text-xs">Conservação</p><p className="font-medium text-foreground">{product.conservation}</p></div>
-          </div>
-
-          {chairModel && (
+  const configurationPanel = chairModel ? (
             <div className="rounded-2xl border border-border bg-card p-5">
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div>
@@ -388,7 +479,7 @@ export function ProductPage({
                         )}
                       >
                         <div className="flex justify-between gap-2"><span className="font-medium text-sm text-foreground">{reducer.name}</span>{preferred && <span className="text-[10px] bg-accent/10 text-accent border border-accent/30 rounded-full px-1.5 py-0.5">Preferencial</span>}</div>
-                        <p className="text-xs text-muted-foreground mt-1">{priceAdjustmentLabel(reducer.priceAdjustment.monthly)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{reducerPriceAdjustmentLabel(reducer.priceAdjustment.monthly)}</p>
                         <p className="text-xs text-muted-foreground mt-1">Disponível: {reducer.availableQuantity}</p>
                       </button>
                     );
@@ -406,7 +497,81 @@ export function ProductPage({
               {selectedCover && !variant && <p className="mt-3 text-sm text-destructive">Esta combinação ainda não possui uma variante visual publicada e não pode ser adicionada.</p>}
               {selectedCover && variant && availableQuantity === 0 && <p className="mt-3 text-sm text-destructive">A composição selecionada está sem estoque no momento.</p>}
             </div>
+  ) : null;
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+        <button onClick={() => navigate("home")} className="hover:text-foreground">Início</button>
+        <ChevronRight size={14} />
+        <button onClick={() => navigate("catalog")} className="hover:text-foreground">Produtos</button>
+        <ChevronRight size={14} />
+        <span className="text-foreground">{product.name}</span>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-12 mb-16">
+        <div>
+          <div className="relative rounded-2xl overflow-hidden bg-secondary mb-4 border border-border min-h-96">
+            {activeImageUrl ? <img src={activeImageUrl} alt={activeImageAlt} className="w-full h-96 object-cover" /> : <div className="h-96 flex items-center justify-center p-6"><EmptyState compact title="Imagem não cadastrada" description="A imagem real deste produto ou variante ainda não foi enviada." /></div>}
+            <div className="absolute top-4 left-4 flex flex-col gap-2">
+              <span className="bg-accent text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1"><Droplets size={10} />Higienizado</span>
+              <span className="bg-primary text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1"><Shield size={10} />Revisado</span>
+            </div>
+            <div className="absolute top-4 right-4"><AvailabilityBadge status={availableQuantity === 0 ? "unavailable" : product.status} /></div>
+            {variant && <span className="absolute bottom-4 left-4 bg-white/90 border border-border text-xs px-2 py-1 rounded-lg text-foreground">{variant.id} · {variant.prefix}</span>}
+          </div>
+          {displayGallery.length > 1 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {displayGallery.map((image) => (
+                <button
+                  key={image.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedGalleryImageId(image.id);
+                    if (image.angle) setSelectedAngle(image.angle);
+                  }}
+                  className={cn(
+                    "rounded-xl overflow-hidden border-2 text-left transition-colors bg-card",
+                    activeGalleryImage?.id === image.id ? "border-primary" : "border-border hover:border-primary/50",
+                  )}
+                >
+                  <img src={image.url} alt={image.alt} className="w-full h-24 object-cover" />
+                  <span className="block px-2 py-1.5 text-xs text-center text-foreground truncate">{image.label}</span>
+                </button>
+              ))}
+            </div>
+          ) : displayGallery.length === 1 ? (
+            <p className="text-sm text-muted-foreground">Uma imagem real cadastrada. Adicione outras angulações para ampliar a galeria.</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">Nenhuma imagem real foi cadastrada para este produto ou modelo.</p>
           )}
+          <div className="mt-6">{configurationPanel}</div>
+        </div>
+
+        <div className="flex flex-col gap-6">
+          <div>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              {(categoryNames.length ? categoryNames : ["Sem categoria"]).map((categoryName) => (
+                <span key={categoryName} className="text-xs bg-secondary border border-border px-2 py-0.5 rounded-full text-muted-foreground">{categoryName}</span>
+              ))}
+              <span className="text-xs text-muted-foreground">Cód. {product.id.toUpperCase()}</span>
+            </div>
+            <h1 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-3xl text-foreground mb-1">{product.name}</h1>
+            <p className="text-muted-foreground">{product.brand} · {product.model}</p>
+            <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-1 text-amber-400">
+                {[...Array(5)].map((_, index) => <Star key={index} size={14} fill={index < Math.floor(displayRating) ? "currentColor" : "none"} />)}
+              </div>
+              <span className="text-sm text-muted-foreground">{displayRating} ({displayReviewCount} avaliações)</span>
+            </div>
+          </div>
+
+          <div className="flex gap-4 text-sm flex-wrap">
+            <div className="bg-secondary rounded-xl px-4 py-2 text-center"><p className="text-muted-foreground text-xs">Idade</p><p className="font-medium text-foreground">{product.ageMin} – {product.ageMax}</p></div>
+            <div className="bg-secondary rounded-xl px-4 py-2 text-center"><p className="text-muted-foreground text-xs">Peso máximo</p><p className="font-medium text-foreground">{product.weightMax}</p></div>
+            <div className="bg-secondary rounded-xl px-4 py-2 text-center"><p className="text-muted-foreground text-xs">Conservação</p><p className="font-medium text-foreground">{product.conservation}</p></div>
+          </div>
+
 
           <p className="text-muted-foreground leading-relaxed">{composedDescription}</p>
 
@@ -415,12 +580,20 @@ export function ProductPage({
             <div className="mb-3">
               <label className="text-sm font-medium text-foreground block mb-2">Período de locação <span className="text-primary">*</span></label>
               <div className="grid grid-cols-3 gap-2">
-                {([30, 60, 90] as const).map((value) => (
-                  <button key={value} type="button" onClick={() => { setPeriod(period === value ? null : value); setProductErrors((current) => ({ ...current, period: "" })); }} className={cn("flex flex-col items-center py-3 px-2 rounded-xl border-2 font-medium text-sm transition-all", period === value ? "border-primary bg-primary/10 text-primary" : "border-border bg-input-background text-foreground hover:border-primary/50")}> 
-                    <span className="text-lg font-bold">{value}</span><span className="text-xs opacity-70">dias</span>
-                    <span className="text-xs mt-0.5 font-normal text-muted-foreground">{formatMoneyFromCents(calculateRentalPrice({ rates: configuredRates, days: value }).unitPriceCents)}</span>
-                  </button>
-                ))}
+                {([30, 60, 90] as const).map((value) => {
+                  const estimate = calculateRentalPrice({ baseRates, coverRates, reducerRates, periodPricing, days: value });
+                  return (
+                    <button key={value} type="button" onClick={() => { setPeriod(period === value ? null : value); setProductErrors((current) => ({ ...current, period: "" })); }} className={cn("flex flex-col items-center py-3 px-2 rounded-xl border-2 font-medium text-sm transition-all", period === value ? "border-primary bg-primary/10 text-primary" : "border-border bg-input-background text-foreground hover:border-primary/50")}>
+                      <span className="text-lg font-bold">{value}</span><span className="text-xs opacity-70">dias</span>
+                      <span className="text-xs mt-0.5 font-normal text-muted-foreground">{formatMoneyFromCents(estimate.totalCents)}</span>
+                      {estimate.benefitType === "discount" && <span className="text-[10px] mt-1 text-green-700">{estimate.discountPercent}% na cadeira + pano</span>}
+                      {estimate.reducerWaiverCents > 0 && <span className="text-[10px] mt-0.5 text-green-700">Redutor grátis</span>}
+                      {estimate.benefitType === "fixed_price" && <span className="text-[10px] mt-1 text-green-700">Preço-base especial</span>}
+                      {estimate.benefitType === "free_base" && <span className="text-[10px] mt-1 text-green-700">Produto-base gratuito</span>}
+                      {estimate.benefitType === "free_configuration" && <span className="text-[10px] mt-1 text-green-700">Configuração gratuita</span>}
+                    </button>
+                  );
+                })}
               </div>
               <p className="text-xs text-muted-foreground mt-1.5">Preço por unidade, incluindo a composição selecionada</p>
             </div>
@@ -472,16 +645,21 @@ export function ProductPage({
               </div>
             )}
 
-            {delivery === "delivery" && isValidCep(cep) && <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl border text-sm mb-3", shippingCost !== null ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800")}><Truck size={16} className="shrink-0" />{shippingCost !== null ? <span>Frete estimado para este CEP: <strong>{formatMoneyFromCents(Math.round(shippingCost * 100))}</strong></span> : <span>CEP fora da área de atendimento atual. Escolha retirada ou combine com a equipe.</span>}</div>}
+            {delivery === "delivery" && isValidCep(cep) && <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl border text-sm mb-3", shippingEstimate ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800")}><Truck size={16} className="shrink-0" />{shippingPending ? <span>Calculando a distância da entrega...</span> : shippingEstimate ? <span>Frete estimado: <strong>{formatMoneyFromCents(shippingEstimate.amountCents)}</strong><span className="block text-xs mt-0.5">Rota de {shippingEstimate.oneWayDistanceKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km a partir de {shippingEstimate.originLabel}.</span></span> : <span>{shippingMessage || "Não foi possível calcular a entrega para este CEP."}</span>}</div>}
 
             {period && (
               <div className="bg-card rounded-xl p-4 mb-4 border border-border">
                 {chairModel && selectedCover && <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Composição</span><span className="text-foreground text-right">{selectedCover.name}{selectedReducer ? ` + ${selectedReducer.name}` : " + sem redutor"}</span></div>}
                 <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Período selecionado</span><span className="text-foreground font-medium">{period} dias</span></div>
-                <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Valor do produto</span><span className="text-foreground">{priceEstimate ? formatMoneyFromCents(priceEstimate.totalCents) : formatMoneyFromCents(0)}</span></div>
-                {delivery === "delivery" && <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Frete</span><span className="text-foreground">{shippingCost !== null ? formatMoneyFromCents(Math.round(shippingCost * 100)) : "A calcular"}</span></div>}
+                <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Produto-base</span><span className="text-foreground">{priceEstimate ? formatMoneyFromCents(priceEstimate.baseSubtotalCents) : formatMoneyFromCents(0)}</span></div>
+                {priceEstimate && priceEstimate.coverSubtotalCents > 0 && <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Pano</span><span className="text-foreground">{formatMoneyFromCents(priceEstimate.coverSubtotalCents)}</span></div>}
+                {priceEstimate && priceEstimate.reducerSubtotalCents > 0 && <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Redutor</span><span className="text-foreground">{formatMoneyFromCents(priceEstimate.reducerSubtotalCents)}</span></div>}
+                {priceEstimate && priceEstimate.baseDiscountCents > 0 && <div className="flex justify-between text-sm mb-2 text-green-700"><span>Desconto de {priceEstimate.discountPercent}% na cadeira + pano</span><span>− {formatMoneyFromCents(priceEstimate.baseDiscountCents)}</span></div>}
+                {priceEstimate && priceEstimate.reducerWaiverCents > 0 && <div className="flex justify-between text-sm mb-2 text-green-700"><span>Redutor grátis em 60/90 dias</span><span>− {formatMoneyFromCents(priceEstimate.reducerWaiverCents)}</span></div>}
+                {priceEstimate && (priceEstimate.freeBaseCents > 0 || priceEstimate.freeComponentsCents > 0) && <div className="flex justify-between text-sm mb-2 text-green-700"><span>{priceEstimate.benefitType === "free_configuration" ? "Gratuidade da configuração" : "Gratuidade do produto-base"}</span><span>− {formatMoneyFromCents(priceEstimate.freeBaseCents + priceEstimate.freeComponentsCents)}</span></div>}
+                {delivery === "delivery" && <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Frete</span><span className="text-foreground">{shippingEstimate ? formatMoneyFromCents(shippingEstimate.amountCents) : shippingPending ? "Calculando..." : "A calcular"}</span></div>}
                 <div className="border-t border-border pt-2 mt-2 flex justify-between font-semibold"><span className="text-foreground">Total estimado</span><span className="text-primary">{formatMoneyFromCents(totalEstimateCents)}</span></div>
-                <p className="text-xs text-muted-foreground mt-2">Estimativa. O valor final é confirmado no orçamento da equipe Rent4Moms.</p>
+                <p className="text-xs text-muted-foreground mt-2">{pricingPending ? "Confirmando a regra de preço..." : officialPriceEstimate ? "Preço calculado pelo backend com a política vigente." : "Prévia local; o backend recalcula antes de registrar o orçamento."}</p>
               </div>
             )}
 
@@ -496,7 +674,7 @@ export function ProductPage({
                 {quoteItemIds.includes(product.id) ? <><Check size={16} />Atualizar no orçamento</> : <><ShoppingBag size={16} />Adicionar ao orçamento</>}
               </Btn>
               {chairModel && !selectedCover && <p className="text-xs text-center text-muted-foreground">Escolha um pano antes de adicionar ao orçamento.</p>}
-              <a href={`https://wa.me/[NUMERO]?text=Olá, gostaria de saber mais sobre o produto ${product.name} para ${period ? `${period} dias` : "período a definir"}.`} target="_blank" rel="noreferrer"><Btn variant="outline" fullWidth><MessageCircle size={16} />Falar sobre este produto</Btn></a>
+              {productWhatsAppUrl && <a href={productWhatsAppUrl} target="_blank" rel="noreferrer"><Btn variant="outline" fullWidth><MessageCircle size={16} />Falar sobre este produto</Btn></a>}
             </div>
           </div>
 

@@ -1,39 +1,34 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from "react";
-import {
-  INITIAL_ASSEMBLY_VARIANTS,
-  INITIAL_BALL_SETS,
-  INITIAL_CATEGORIES,
-  INITIAL_CHAIR_MODELS,
-  INITIAL_COMPATIBILITIES,
-  INITIAL_COVERS,
-  INITIAL_PRODUCTS,
-  INITIAL_REDUCERS,
-} from "../../data/mocks/catalog";
-import { isAssemblyVariantComplete } from "../../domain/catalog/configurator";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createEmptyCatalogSnapshot, isCatalogEmpty } from "../../domain/catalog/emptyCatalog";
 import type {
   AssemblyVariant,
   AssemblyVariantInput,
   BallSet,
-  CatalogComponentType,
+  BallSetInput,
+  CatalogDeleteResolution,
+  CatalogEntityType,
+  CatalogImpact,
   CatalogSnapshot,
   Category,
   CategoryInput,
   CategoryWithCount,
   ChairModel,
+  ChairModelInput,
   ComponentCompatibility,
   ConfigurableComponentInput,
   Cover,
   Product,
+  ProductInput,
   Reducer,
 } from "../../domain/catalog/types";
 import { getCategoriesWithCount } from "../../domain/catalog/selectors";
+import { normalizeProductPeriodPricing } from "../../domain/pricing/pricingEngine";
 import { CatalogApiRepository } from "../../services/catalog/catalogApiRepository";
-import { LocalCatalogRepository } from "../../services/catalog/localCatalogRepository";
-import { catalogReducer } from "./catalogReducer";
 
 interface DeleteResult {
   ok: boolean;
   reason?: string;
+  impact?: CatalogImpact;
 }
 
 interface CatalogContextValue {
@@ -48,275 +43,185 @@ interface CatalogContextValue {
   compatibilities: ComponentCompatibility[];
   assemblyVariants: AssemblyVariant[];
   getProduct: (productId: string) => Product | undefined;
-  createCategory: (input: CategoryInput) => Category;
-  updateCategory: (categoryId: string, input: CategoryInput) => void;
-  deleteCategory: (categoryId: string) => void;
-  updateProductCategories: (productId: string, categoryIds: string[]) => void;
-  updateChairModel: (modelId: string, patch: Partial<ChairModel>) => void;
-  updateBallSet: (ballSetId: string, patch: Partial<BallSet>) => void;
-  saveCover: (input: ConfigurableComponentInput, coverId?: string) => Cover;
-  saveReducer: (input: ConfigurableComponentInput, reducerId?: string) => Reducer;
-  deleteCover: (coverId: string) => DeleteResult;
-  deleteReducer: (reducerId: string) => DeleteResult;
-  saveAssemblyVariant: (input: AssemblyVariantInput, variantId?: string) => AssemblyVariant;
-  deleteAssemblyVariant: (variantId: string) => void;
+  createCategory: (input: CategoryInput) => Promise<Category>;
+  updateCategory: (categoryId: string, input: CategoryInput) => Promise<Category>;
+  deleteCategory: (categoryId: string, resolution?: CatalogDeleteResolution) => Promise<DeleteResult>;
+  createProduct: (input: ProductInput) => Promise<Product>;
+  updateProduct: (productId: string, input: ProductInput) => Promise<Product>;
+  deleteProduct: (productId: string, resolution?: CatalogDeleteResolution) => Promise<DeleteResult>;
+  updateProductCategories: (productId: string, categoryIds: string[]) => Promise<void>;
+  saveChairModel: (input: ChairModelInput, modelId?: string) => Promise<ChairModel>;
+  updateChairModel: (modelId: string, patch: Partial<ChairModel>) => Promise<void>;
+  deleteChairModel: (modelId: string, resolution?: CatalogDeleteResolution) => Promise<DeleteResult>;
+  saveBallSet: (input: BallSetInput, ballSetId?: string) => Promise<BallSet>;
+  updateBallSet: (ballSetId: string, patch: Partial<BallSet>) => Promise<void>;
+  deleteBallSet: (ballSetId: string, resolution?: CatalogDeleteResolution) => Promise<DeleteResult>;
+  saveCover: (input: ConfigurableComponentInput, coverId?: string) => Promise<Cover>;
+  saveReducer: (input: ConfigurableComponentInput, reducerId?: string) => Promise<Reducer>;
+  deleteCover: (coverId: string, resolution?: CatalogDeleteResolution) => Promise<DeleteResult>;
+  deleteReducer: (reducerId: string, resolution?: CatalogDeleteResolution) => Promise<DeleteResult>;
+  saveAssemblyVariant: (input: AssemblyVariantInput, variantId?: string) => Promise<AssemblyVariant>;
+  deleteAssemblyVariant: (variantId: string, resolution?: CatalogDeleteResolution) => Promise<DeleteResult>;
+  getImpact: (entityType: CatalogEntityType, entityId: string) => Promise<CatalogImpact>;
   resetCatalog: () => void;
   refreshCatalog: () => Promise<void>;
-  syncStatus: "loading" | "synced" | "offline" | "saving" | "error";
+  syncStatus: "loading" | "synced" | "empty" | "saving" | "error";
 }
 
-const repository = new LocalCatalogRepository();
 const apiRepository = new CatalogApiRepository();
+const CatalogContext = createContext<CatalogContextValue | null>(null);
 
 export function createInitialCatalogSnapshot(): CatalogSnapshot {
+  return createEmptyCatalogSnapshot();
+}
+
+function productToInput(product: Product, patch: Partial<Product> = {}): ProductInput {
+  const next = { ...product, ...patch };
   return {
-    version: 2,
-    products: INITIAL_PRODUCTS,
-    categories: INITIAL_CATEGORIES,
-    chairModels: INITIAL_CHAIR_MODELS,
-    covers: INITIAL_COVERS,
-    reducers: INITIAL_REDUCERS,
-    ballSets: INITIAL_BALL_SETS,
-    compatibilities: INITIAL_COMPATIBILITIES,
-    assemblyVariants: INITIAL_ASSEMBLY_VARIANTS,
-    updatedAt: new Date().toISOString(),
+    name: next.name,
+    brand: next.brand,
+    model: next.model,
+    categoryIds: next.categoryIds,
+    ageMin: next.ageMin,
+    ageMax: next.ageMax,
+    weightMax: next.weightMax,
+    priceDaily: next.priceDaily,
+    priceWeekly: next.priceWeekly,
+    priceMonthly: next.priceMonthly,
+    periodPricing: normalizeProductPeriodPricing(next.periodPricing),
+    status: next.status,
+    description: next.description,
+    featured: next.featured,
+    conservation: next.conservation,
+    tags: next.tags,
+    minDays: next.minDays,
+    specs: next.specs,
+    isActive: next.isActive,
+    publicationStatus: next.publicationStatus,
   };
 }
 
-function loadInitialSnapshot(): CatalogSnapshot {
-  return repository.load() ?? createInitialCatalogSnapshot();
-}
-
-function slugify(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
-function compatibilityRecords(
-  componentType: CatalogComponentType,
-  componentId: string,
-  input: ConfigurableComponentInput,
-): ComponentCompatibility[] {
-  return input.compatibleModelIds.map((modelId) => ({
-    id: `${modelId}:${componentType}:${componentId}`,
-    modelId,
-    componentType,
-    componentId,
-    isPreferred: input.preferredModelIds.includes(modelId),
-    isActive: true,
-  }));
-}
-
-const CatalogContext = createContext<CatalogContextValue | null>(null);
+const deleteMetadata: Record<CatalogEntityType, { collection: string; label: string }> = {
+  category: { collection: "categories", label: "categoria" },
+  product: { collection: "products", label: "produto" },
+  chair_model: { collection: "chair-models", label: "modelo" },
+  cover: { collection: "covers", label: "pano" },
+  reducer: { collection: "reducers", label: "redutor" },
+  ball_set: { collection: "ball-sets", label: "conjunto de bolinhas" },
+  assembly_variant: { collection: "assembly-variants", label: "variante" },
+};
 
 export function CatalogProvider({ children, canPersistRemote = false }: { children: React.ReactNode; canPersistRemote?: boolean }) {
-  const [snapshot, dispatch] = useReducer(catalogReducer, undefined, loadInitialSnapshot);
-  const [remoteHydrated, setRemoteHydrated] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<"loading" | "synced" | "offline" | "saving" | "error">("loading");
+  const [snapshot, setSnapshot] = useState<CatalogSnapshot>(createInitialCatalogSnapshot);
+  const [syncStatus, setSyncStatus] = useState<CatalogContextValue["syncStatus"]>("loading");
 
-  useEffect(() => {
-    let active = true;
-    apiRepository.load()
-      .then((remoteSnapshot) => {
-        if (!active) return;
-        repository.save(remoteSnapshot);
-        dispatch({ type: "catalog.reset", snapshot: remoteSnapshot });
-        setSyncStatus("synced");
-      })
-      .catch(() => {
-        if (active) setSyncStatus("offline");
-      })
-      .finally(() => {
-        if (active) setRemoteHydrated(true);
-      });
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => {
-    repository.save(snapshot);
-    if (!remoteHydrated || !canPersistRemote) return;
-    setSyncStatus("saving");
-    const timer = window.setTimeout(() => {
-      apiRepository.save(snapshot)
-        .then(() => setSyncStatus("synced"))
-        .catch(() => setSyncStatus("error"));
-    }, 350);
-    return () => window.clearTimeout(timer);
-  }, [snapshot, remoteHydrated, canPersistRemote]);
-
-  const createCategory = useCallback((input: CategoryInput): Category => {
-    const baseId = slugify(input.name) || "categoria";
-    let id = baseId;
-    let suffix = 2;
-    while (snapshot.categories.some((category) => category.id === id)) {
-      id = `${baseId}-${suffix}`;
-      suffix += 1;
-    }
-
-    const category: Category = {
-      id,
-      name: input.name.trim(),
-      description: input.description.trim(),
-      icon: input.icon.trim() || "📦",
-      color: input.color,
-      isActive: input.isActive,
-      sortOrder: input.sortOrder ?? Math.max(0, ...snapshot.categories.map((item) => item.sortOrder)) + 1,
-    };
-
-    dispatch({ type: "category.created", category });
-    return category;
-  }, [snapshot.categories]);
-
-  const updateCategory = useCallback((categoryId: string, input: CategoryInput) => {
-    const current = snapshot.categories.find((category) => category.id === categoryId);
-    if (!current) return;
-    dispatch({
-      type: "category.updated",
-      category: {
-        ...current,
-        name: input.name.trim(),
-        description: input.description.trim(),
-        icon: input.icon.trim() || "📦",
-        color: input.color,
-        isActive: input.isActive,
-        sortOrder: input.sortOrder ?? current.sortOrder,
-      },
-    });
-  }, [snapshot.categories]);
-
-  const deleteCategory = useCallback((categoryId: string) => {
-    dispatch({ type: "category.deleted", categoryId });
-  }, []);
-
-  const updateProductCategories = useCallback((productId: string, categoryIds: string[]) => {
-    dispatch({ type: "product.categories.updated", productId, categoryIds });
-  }, []);
-
-  const updateChairModel = useCallback((modelId: string, patch: Partial<ChairModel>) => {
-    const current = snapshot.chairModels.find((model) => model.id === modelId);
-    if (!current) return;
-    dispatch({
-      type: "chair-model.updated",
-      chairModel: {
-        ...current,
-        ...patch,
-        availableQuantity: Math.max(0, Math.trunc(patch.availableQuantity ?? current.availableQuantity)),
-      },
-    });
-  }, [snapshot.chairModels]);
-
-  const updateBallSet = useCallback((ballSetId: string, patch: Partial<BallSet>) => {
-    const current = snapshot.ballSets.find((ballSet) => ballSet.id === ballSetId);
-    if (!current) return;
-    dispatch({
-      type: "ball-set.updated",
-      ballSet: {
-        ...current,
-        ...patch,
-        availableQuantity: Math.max(0, Math.trunc(patch.availableQuantity ?? current.availableQuantity)),
-      },
-    });
-  }, [snapshot.ballSets]);
-
-  const saveComponent = useCallback((
-    componentType: CatalogComponentType,
-    input: ConfigurableComponentInput,
-    componentId?: string,
-  ): Cover | Reducer => {
-    const list = componentType === "cover" ? snapshot.covers : snapshot.reducers;
-    const prefix = componentType === "cover" ? "cover" : "reducer";
-    const baseId = componentId ?? `${prefix}-${slugify(input.code || input.name) || Date.now()}`;
-    let id = baseId;
-    let suffix = 2;
-    while (!componentId && list.some((component) => component.id === id)) {
-      id = `${baseId}-${suffix}`;
-      suffix += 1;
-    }
-
-    const component = {
-      id,
-      code: input.code.trim(),
-      name: input.name.trim(),
-      description: input.description.trim(),
-      priceAdjustment: {
-        daily: Math.max(0, Number(input.priceAdjustment.daily) || 0),
-        weekly: Math.max(0, Number(input.priceAdjustment.weekly) || 0),
-        monthly: Math.max(0, Number(input.priceAdjustment.monthly) || 0),
-      },
-      isActive: input.isActive,
-      availableQuantity: Math.max(0, Math.trunc(input.availableQuantity || 0)),
-      kind: componentType,
-    } as Cover | Reducer;
-
-    dispatch({
-      type: "component.saved",
-      componentType,
-      component,
-      compatibilities: compatibilityRecords(componentType, component.id, input),
-    });
-    return component;
-  }, [snapshot.covers, snapshot.reducers]);
-
-  const saveCover = useCallback((input: ConfigurableComponentInput, coverId?: string) => (
-    saveComponent("cover", input, coverId) as Cover
-  ), [saveComponent]);
-
-  const saveReducer = useCallback((input: ConfigurableComponentInput, reducerId?: string) => (
-    saveComponent("reducer", input, reducerId) as Reducer
-  ), [saveComponent]);
-
-  const deleteComponent = useCallback((componentType: CatalogComponentType, componentId: string): DeleteResult => {
-    const isUsed = snapshot.assemblyVariants.some((variant) => componentType === "cover"
-      ? variant.coverId === componentId
-      : variant.reducerId === componentId);
-    if (isUsed) {
-      return { ok: false, reason: "O componente está vinculado a uma ou mais variantes. Desative-o ou remova as variantes antes de excluir." };
-    }
-    dispatch({ type: "component.deleted", componentType, componentId });
-    return { ok: true };
-  }, [snapshot.assemblyVariants]);
-
-  const saveAssemblyVariant = useCallback((input: AssemblyVariantInput, variantId?: string): AssemblyVariant => {
-    const model = snapshot.chairModels.find((item) => item.id === input.modelId);
-    const baseId = variantId ?? `${model?.version ?? "custom"}-${Date.now()}`;
-    const next: AssemblyVariant = {
-      id: baseId,
-      ...input,
-      prefix: input.prefix.trim(),
-      publicationStatus: input.publicationStatus === "published" && input.images.length > 0
-        ? input.publicationStatus
-        : "draft",
-    };
-    if (next.publicationStatus === "published" && !isAssemblyVariantComplete(next)) {
-      next.publicationStatus = "draft";
-    }
-    dispatch({ type: "variant.saved", variant: next });
-    return next;
-  }, [snapshot.chairModels]);
-
-  const deleteAssemblyVariant = useCallback((variantId: string) => {
-    dispatch({ type: "variant.deleted", variantId });
-  }, []);
-
-  const resetCatalog = useCallback(() => {
-    repository.clear();
-    dispatch({ type: "catalog.reset", snapshot: createInitialCatalogSnapshot() });
+  const applySnapshot = useCallback((next: CatalogSnapshot) => {
+    setSnapshot(next);
+    setSyncStatus(isCatalogEmpty(next) ? "empty" : "synced");
   }, []);
 
   const refreshCatalog = useCallback(async () => {
     setSyncStatus("loading");
     try {
-      const remoteSnapshot = await apiRepository.load();
-      repository.save(remoteSnapshot);
-      dispatch({ type: "catalog.reset", snapshot: remoteSnapshot });
-      setSyncStatus("synced");
+      applySnapshot(await apiRepository.load(canPersistRemote));
     } catch {
-      setSyncStatus("offline");
+      setSnapshot(createInitialCatalogSnapshot());
+      setSyncStatus("error");
     }
+  }, [applySnapshot, canPersistRemote]);
+
+  useEffect(() => { void refreshCatalog(); }, [refreshCatalog]);
+
+  const mutate = useCallback(async <T,>(operation: () => Promise<{ entity: T; catalog: CatalogSnapshot }>): Promise<T> => {
+    setSyncStatus("saving");
+    try {
+      const response = await operation();
+      applySnapshot(response.catalog);
+      return response.entity;
+    } catch (error) {
+      setSyncStatus("error");
+      throw error;
+    }
+  }, [applySnapshot]);
+
+  const deleteEntity = useCallback(async (
+    entityType: CatalogEntityType,
+    entityId: string,
+    resolution: CatalogDeleteResolution = "block",
+  ): Promise<DeleteResult> => {
+    const impact = await apiRepository.getImpact(entityType, entityId);
+    if (!impact.canDeleteWithoutResolution && resolution === "block") {
+      return {
+        ok: false,
+        impact,
+        reason: `Este ${deleteMetadata[entityType].label} possui ${impact.dependencies.length} vínculo(s). Revise o impacto antes de excluir.`,
+      };
+    }
+    setSyncStatus("saving");
+    try {
+      const response = await apiRepository.deleteEntity(deleteMetadata[entityType].collection, entityId, resolution);
+      applySnapshot(response.catalog);
+      return { ok: true, impact: response.impact };
+    } catch (error) {
+      setSyncStatus("error");
+      throw error;
+    }
+  }, [applySnapshot]);
+
+  const createCategory = useCallback((input: CategoryInput) => mutate(() => apiRepository.createCategory(input)), [mutate]);
+  const updateCategory = useCallback((categoryId: string, input: CategoryInput) => mutate(() => apiRepository.updateCategory(categoryId, input)), [mutate]);
+  const createProduct = useCallback((input: ProductInput) => mutate(() => apiRepository.createProduct(input)), [mutate]);
+  const updateProduct = useCallback((productId: string, input: ProductInput) => mutate(() => apiRepository.updateProduct(productId, input)), [mutate]);
+
+  const updateProductCategories = useCallback(async (productId: string, categoryIds: string[]) => {
+    const product = snapshot.products.find((item) => item.id === productId);
+    if (!product) return;
+    await updateProduct(productId, productToInput(product, { categoryIds }));
+  }, [snapshot.products, updateProduct]);
+
+  const saveChairModel = useCallback((input: ChairModelInput, modelId?: string) => mutate(() => (
+    modelId ? apiRepository.updateChairModel(modelId, input) : apiRepository.createChairModel(input)
+  )), [mutate]);
+
+  const updateChairModel = useCallback(async (modelId: string, patch: Partial<ChairModel>) => {
+    const current = snapshot.chairModels.find((item) => item.id === modelId);
+    if (!current) return;
+    const next = { ...current, ...patch };
+    const input: ChairModelInput = {
+      productId: next.productId, version: next.version, technicalCode: next.technicalCode, name: next.name,
+      description: next.description, ballSetId: next.ballSetId, isActive: next.isActive,
+    };
+    await saveChairModel(input, modelId);
+  }, [saveChairModel, snapshot.chairModels]);
+
+  const saveBallSet = useCallback((input: BallSetInput, ballSetId?: string) => mutate(() => (
+    ballSetId ? apiRepository.updateBallSet(ballSetId, input) : apiRepository.createBallSet(input)
+  )), [mutate]);
+
+  const updateBallSet = useCallback(async (ballSetId: string, patch: Partial<BallSet>) => {
+    const current = snapshot.ballSets.find((item) => item.id === ballSetId);
+    if (!current) return;
+    const next = { ...current, ...patch };
+    const input: BallSetInput = {
+      code: next.code, name: next.name, modelId: next.modelId, description: next.description,
+      isActive: next.isActive,
+    };
+    await saveBallSet(input, ballSetId);
+  }, [saveBallSet, snapshot.ballSets]);
+
+  const saveCover = useCallback(async (input: ConfigurableComponentInput, coverId?: string): Promise<Cover> => {
+    const entity = await mutate(() => apiRepository.saveComponent("cover", input, coverId));
+    return entity as Cover;
+  }, [mutate]);
+  const saveReducer = useCallback(async (input: ConfigurableComponentInput, reducerId?: string): Promise<Reducer> => {
+    const entity = await mutate(() => apiRepository.saveComponent("reducer", input, reducerId));
+    return entity as Reducer;
+  }, [mutate]);
+  const saveAssemblyVariant = useCallback((input: AssemblyVariantInput, variantId?: string) => mutate(() => apiRepository.saveAssemblyVariant(input, variantId)), [mutate]);
+
+  const resetCatalog = useCallback(() => {
+    setSnapshot(createInitialCatalogSnapshot());
+    setSyncStatus("empty");
   }, []);
 
   const value = useMemo<CatalogContextValue>(() => ({
@@ -333,36 +238,28 @@ export function CatalogProvider({ children, canPersistRemote = false }: { childr
     getProduct: (productId) => snapshot.products.find((product) => product.id === productId),
     createCategory,
     updateCategory,
-    deleteCategory,
+    deleteCategory: (categoryId, resolution) => deleteEntity("category", categoryId, resolution),
+    createProduct,
+    updateProduct,
+    deleteProduct: (productId, resolution) => deleteEntity("product", productId, resolution),
     updateProductCategories,
+    saveChairModel,
     updateChairModel,
+    deleteChairModel: (modelId, resolution) => deleteEntity("chair_model", modelId, resolution),
+    saveBallSet,
     updateBallSet,
+    deleteBallSet: (ballSetId, resolution) => deleteEntity("ball_set", ballSetId, resolution),
     saveCover,
     saveReducer,
-    deleteCover: (coverId) => deleteComponent("cover", coverId),
-    deleteReducer: (reducerId) => deleteComponent("reducer", reducerId),
+    deleteCover: (coverId, resolution) => deleteEntity("cover", coverId, resolution),
+    deleteReducer: (reducerId, resolution) => deleteEntity("reducer", reducerId, resolution),
     saveAssemblyVariant,
-    deleteAssemblyVariant,
+    deleteAssemblyVariant: (variantId, resolution) => deleteEntity("assembly_variant", variantId, resolution),
+    getImpact: (entityType, entityId) => apiRepository.getImpact(entityType, entityId),
     resetCatalog,
     refreshCatalog,
     syncStatus,
-  }), [
-    snapshot,
-    createCategory,
-    updateCategory,
-    deleteCategory,
-    updateProductCategories,
-    updateChairModel,
-    updateBallSet,
-    saveCover,
-    saveReducer,
-    deleteComponent,
-    saveAssemblyVariant,
-    deleteAssemblyVariant,
-    resetCatalog,
-    refreshCatalog,
-    syncStatus,
-  ]);
+  }), [snapshot, createCategory, updateCategory, deleteEntity, createProduct, updateProduct, updateProductCategories, saveChairModel, updateChairModel, saveBallSet, updateBallSet, saveCover, saveReducer, saveAssemblyVariant, resetCatalog, refreshCatalog, syncStatus]);
 
   return <CatalogContext.Provider value={value}>{children}</CatalogContext.Provider>;
 }
