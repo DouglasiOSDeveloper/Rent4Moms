@@ -42,6 +42,7 @@ const STATIC_PATHS: Record<Exclude<Page, "product" | "admin-order" | "account-or
   "admin-customer-experience": "/admin/experiencia-cliente",
   "admin-content": "/admin/conteudo",
   "admin-config": "/admin/configuracoes",
+  "admin-help": "/admin/ajuda",
 };
 
 export type NavigateToPage = (page: Page, params?: Record<string, string>) => void;

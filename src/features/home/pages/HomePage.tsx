@@ -1,28 +1,21 @@
 import React, { useState } from "react";
-import {
-  Menu, X, ShoppingBag, Heart, Star, ChevronDown, ChevronRight, ChevronLeft,
-  ChevronUp, Search, Filter, MapPin, Calendar, Phone, Mail, Instagram,
-  MessageCircle, User, Settings, LogOut, Bell, Package, FileText, Truck,
-  Wrench, CheckCircle, Clock, AlertCircle, XCircle, Eye, Edit, Trash2,
-  Plus, Download, BarChart2, Users, DollarSign, TrendingUp, ArrowRight,
-  Shield, Leaf, Award, Info, Lock, Check, Home, List, Tag, Archive,
-  Layers, Droplets, Clipboard, Activity, Hash, RefreshCw, Upload,
-  MoreHorizontal, Minus, BookOpen, Globe, Zap
-} from "lucide-react";
+import { Search, MapPin, Calendar, MessageCircle, Package, Eye, DollarSign, ArrowRight, Shield, Leaf, Award, Info, Home, Droplets, Zap } from "lucide-react";
 import type { Page, Product } from "../../../domain/shared/types";
-import { FAQ_ITEMS, TESTIMONIALS } from "../../../data/mocks";
 import { getCategoryNames } from "../../../domain/catalog/selectors";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
-import { Accordion, Btn, Input } from "../../../components/prototype/PrototypeUI";
+import { Btn, Input } from "../../../components/prototype/PrototypeUI";
 import { ProductCard } from "../../../components/prototype/ProductCard";
 import { useSiteContent } from "../../../stores/content/SiteContentProvider";
+import { EmptyState, ErrorState, LoadingState } from "../../../components/states/DataState";
+import { buildWhatsAppUrl } from "../../../lib/contact";
 
 export function HomePage({ navigate, onAddToQuote, quoteItemIds }: {
   navigate: (p: Page, params?: Record<string, string>) => void;
   onAddToQuote: (p: Product) => void; quoteItemIds: string[];
 }) {
-  const { products, publicCategories } = useCatalog();
+  const { products, publicCategories, syncStatus, refreshCatalog } = useCatalog();
   const { siteSettings } = useSiteContent();
+  const whatsappUrl = buildWhatsAppUrl(siteSettings.contact.whatsapp, siteSettings.whatsapp.defaultMessage);
   const [compareItems, setCompareItems] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -44,11 +37,13 @@ export function HomePage({ navigate, onAddToQuote, quoteItemIds }: {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <h1 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-4xl sm:text-5xl lg:text-6xl text-foreground leading-tight mb-6">
-                {siteSettings.brand.tagline}
+                {siteSettings.brand.tagline || "Conteúdo institucional ainda não publicado"}
               </h1>
-              <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-                {siteSettings.brand.description}
-              </p>
+              {siteSettings.brand.description ? (
+                <p className="text-lg text-muted-foreground mb-8 leading-relaxed">{siteSettings.brand.description}</p>
+              ) : (
+                <p className="text-lg text-muted-foreground mb-8 leading-relaxed">A apresentação institucional será exibida após o cadastro no painel administrativo.</p>
+              )}
               <div className="flex flex-wrap gap-3">
                 <Btn variant="primary" size="lg" onClick={() => navigate("catalog")}>
                   <Search size={18} />Encontrar uma cadeirinha
@@ -107,19 +102,27 @@ export function HomePage({ navigate, onAddToQuote, quoteItemIds }: {
             <h2 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-3xl text-foreground mb-3">Explore por categoria</h2>
             <p className="text-muted-foreground">Encontre o equipamento ideal para cada momento</p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {publicCategories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => navigate("catalog", { category: cat.id })}
-                className="flex flex-col items-center gap-2 p-4 bg-card rounded-2xl border border-border hover:border-primary hover:shadow-md transition-all text-center group"
-              >
-                <span className="text-3xl">{cat.icon}</span>
-                <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors leading-snug">{cat.name}</p>
-                {cat.productCount > 0 && <p className="text-xs text-muted-foreground">{cat.productCount} produto{cat.productCount !== 1 ? "s" : ""}</p>}
-              </button>
-            ))}
-          </div>
+          {syncStatus === "loading" ? (
+            <LoadingState title="Carregando categorias..." compact />
+          ) : syncStatus === "error" ? (
+            <ErrorState description="A API não respondeu e nenhum catálogo local foi usado." onRetry={() => void refreshCatalog()} compact />
+          ) : publicCategories.length === 0 ? (
+            <EmptyState title="Nenhuma categoria publicada" description="As categorias aparecerão aqui depois do cadastro no painel administrativo." compact />
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              {publicCategories.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => navigate("catalog", { category: cat.id })}
+                  className="flex flex-col items-center gap-2 p-4 bg-card rounded-2xl border border-border hover:border-primary hover:shadow-md transition-all text-center group"
+                >
+                  <span className="text-3xl">{cat.icon}</span>
+                  <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors leading-snug">{cat.name}</p>
+                  {cat.productCount > 0 && <p className="text-xs text-muted-foreground">{cat.productCount} produto{cat.productCount !== 1 ? "s" : ""}</p>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -132,18 +135,25 @@ export function HomePage({ navigate, onAddToQuote, quoteItemIds }: {
           </div>
           <Btn variant="outline" onClick={() => navigate("catalog")}>Ver todos <ArrowRight size={16} /></Btn>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {featured.map(p => (
-            <ProductCard
-              key={p.id} product={p} categoryNames={getCategoryNames(p, publicCategories)} navigate={navigate}
-              onAddToQuote={onAddToQuote}
-              isInQuote={quoteItemIds.includes(p.id)}
-              isComparing={compareItems.includes(p.id)}
-              onToggleCompare={id => setCompareItems(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
-            />
-          ))}
-        </div>
-        <p className="text-center mt-4 text-xs text-muted-foreground">Valores e disponibilidade demonstrativos. Confirme disponibilidade e preços reais ao solicitar o orçamento.</p>
+        {syncStatus === "loading" ? (
+          <LoadingState title="Carregando produtos..." />
+        ) : syncStatus === "error" ? (
+          <ErrorState description="Não exibimos produtos fictícios quando o catálogo está indisponível." onRetry={() => void refreshCatalog()} />
+        ) : featured.length === 0 ? (
+          <EmptyState title="Nenhum produto em destaque" description="Produtos publicados e marcados como destaque aparecerão nesta seção." />
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {featured.map(p => (
+              <ProductCard
+                key={p.id} product={p} categoryNames={getCategoryNames(p, publicCategories)} navigate={navigate}
+                onAddToQuote={onAddToQuote}
+                isInQuote={quoteItemIds.includes(p.id)}
+                isComparing={compareItems.includes(p.id)}
+                onToggleCompare={id => setCompareItems(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* How it works */}
@@ -200,14 +210,7 @@ export function HomePage({ navigate, onAddToQuote, quoteItemIds }: {
               ))}
             </div>
           </div>
-          <div className="relative">
-            <img
-              src="https://images.unsplash.com/photo-1492725764893-90b379c2b6e7?w=700&h=500&fit=crop&auto=format"
-              alt="Família com bebê"
-              className="rounded-3xl w-full object-cover shadow-xl"
-            />
-            <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-foreground/20 to-transparent" />
-          </div>
+          <EmptyState title="Imagem institucional não cadastrada" description="A mídia oficial será exibida após o upload no módulo de conteúdo." />
         </div>
       </section>
 
@@ -238,26 +241,12 @@ export function HomePage({ navigate, onAddToQuote, quoteItemIds }: {
         </div>
       </section>
 
-      {/* Testimonials */}
+      {/* Reviews */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-10">
           <h2 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-3xl text-foreground mb-2">O que dizem as famílias</h2>
-          <p className="text-xs text-muted-foreground">Depoimentos demonstrativos — conteúdo provisório</p>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {TESTIMONIALS.slice(0, 3).map((t, i) => (
-            <div key={i} className="bg-card rounded-2xl border border-border p-6">
-              <div className="flex items-center gap-1 mb-3">
-                {[...Array(5)].map((_, j) => <Star key={j} size={14} fill={j < t.rating ? "#D4A26A" : "none"} className="text-amber-400" />)}
-              </div>
-              <p className="text-muted-foreground text-sm leading-relaxed mb-4">"{t.text}"</p>
-              <div>
-                <p className="font-medium text-foreground">{t.name}</p>
-                <p className="text-xs text-muted-foreground">{t.city} · {t.product}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        <EmptyState title="Nenhuma avaliação publicada" description="Avaliações reais e moderadas aparecerão aqui depois da conclusão das locações." />
       </section>
 
       {/* FAQ */}
@@ -266,7 +255,7 @@ export function HomePage({ navigate, onAddToQuote, quoteItemIds }: {
           <div className="text-center mb-10">
             <h2 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-3xl text-foreground mb-2">Dúvidas frequentes</h2>
           </div>
-          <Accordion items={FAQ_ITEMS.slice(0, 6)} />
+          <EmptyState title="Nenhuma dúvida publicada" description="As perguntas frequentes serão exibidas quando forem cadastradas no conteúdo do site." compact />
           <div className="text-center mt-6">
             <Btn variant="outline" onClick={() => navigate("faq")}>Ver todas as dúvidas <ArrowRight size={16} /></Btn>
           </div>
@@ -282,11 +271,13 @@ export function HomePage({ navigate, onAddToQuote, quoteItemIds }: {
             <Btn variant="primary" size="lg" onClick={() => navigate("catalog")}>
               <Search size={18} />Ver produtos
             </Btn>
-            <a href="https://wa.me/[NUMERO]" target="_blank" rel="noreferrer">
-              <Btn variant="outline" size="lg">
-                <MessageCircle size={18} />Falar no WhatsApp
-              </Btn>
-            </a>
+            {whatsappUrl && (
+              <a href={whatsappUrl} target="_blank" rel="noreferrer">
+                <Btn variant="outline" size="lg">
+                  <MessageCircle size={18} />Falar no WhatsApp
+                </Btn>
+              </a>
+            )}
           </div>
         </div>
       </section>

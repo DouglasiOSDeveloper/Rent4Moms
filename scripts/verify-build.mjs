@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const dist = new URL('../dist/', import.meta.url);
 const html = await readFile(new URL('index.html', dist), 'utf8');
@@ -10,10 +11,11 @@ if (!html.includes('Rent4Moms')) failures.push('index.html must contain the Rent
 if (/noindex/i.test(html)) failures.push('production build must not contain noindex');
 
 const assetsDir = new URL('assets/', dist);
-const assets = await readdir(assetsDir);
+const assetsPath = fileURLToPath(assetsDir);
+const assets = await readdir(assetsPath);
 let javascriptBytes = 0;
 for (const asset of assets) {
-  const details = await stat(join(assetsDir.pathname, asset));
+  const details = await stat(join(assetsPath, asset));
   if (asset.endsWith('.js')) javascriptBytes += details.size;
   if (asset.endsWith('.map')) failures.push(`source map published unexpectedly: ${asset}`);
 }

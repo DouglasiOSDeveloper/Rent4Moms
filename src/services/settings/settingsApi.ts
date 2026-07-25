@@ -1,22 +1,31 @@
 import type { DeliverySettings } from "../../domain/delivery/types";
-import type { ShippingZone } from "../../domain/shared/types";
+import type { ShippingSettings } from "../../domain/shipping/types";
 import { apiRequest } from "../api/apiClient";
+
+export interface RouteProviderStatus {
+  name: string;
+  configured: boolean;
+}
 
 export interface DeliverySettingsDocument {
   deliverySettings: DeliverySettings;
-  shippingZones: ShippingZone[];
+  shipping: ShippingSettings | null;
   updatedAt: string;
 }
 
-export async function loadRemoteDeliverySettings(): Promise<DeliverySettingsDocument> {
-  const response = await apiRequest<{ settings: DeliverySettingsDocument }>("/settings/delivery");
-  return response.settings;
+export interface DeliverySettingsResponse {
+  settings: DeliverySettingsDocument | null;
+  routeProvider?: RouteProviderStatus;
 }
 
-export async function saveRemoteDeliverySettings(settings: DeliverySettingsDocument): Promise<DeliverySettingsDocument> {
-  const response = await apiRequest<{ settings: DeliverySettingsDocument }>("/admin/settings/delivery", {
+export async function loadRemoteDeliverySettings(includeAdministrativeShipping = false): Promise<DeliverySettingsResponse> {
+  const endpoint = includeAdministrativeShipping ? "/admin/settings/delivery" : "/settings/delivery";
+  return await apiRequest<DeliverySettingsResponse>(endpoint);
+}
+
+export async function saveRemoteDeliverySettings(settings: DeliverySettingsDocument): Promise<DeliverySettingsResponse> {
+  return await apiRequest<DeliverySettingsResponse>("/admin/settings/delivery", {
     method: "PUT",
     body: JSON.stringify(settings),
   });
-  return response.settings;
 }

@@ -9,6 +9,7 @@ import type {
   QuoteCustomerData,
   QuoteDraft,
 } from "../../domain/quote/types";
+import type { ShippingEstimate } from "../../domain/shipping/types";
 
 export type QuoteAction =
   | { type: "ADD_PRODUCT"; product: Product; options?: AddProductToQuoteOptions }
@@ -18,7 +19,7 @@ export type QuoteAction =
   | { type: "UPDATE_FULFILLMENT"; fulfillment: FulfillmentMethod }
   | { type: "UPDATE_DELIVERY_SLOT"; deliverySlot: string }
   | { type: "UPDATE_ADDRESS"; patch: Partial<QuoteAddress> }
-  | { type: "UPDATE_SHIPPING_QUOTE"; amountCents: number | null; cep: string }
+  | { type: "UPDATE_SHIPPING_QUOTE"; estimate: ShippingEstimate | null; cep: string }
   | { type: "UPDATE_CUSTOMER"; patch: Partial<QuoteCustomerData> }
   | { type: "UPDATE_ADDITIONAL_INFO"; patch: Partial<QuoteAdditionalInfo> }
   | { type: "UPDATE_CONSENTS"; patch: Partial<QuoteConsents> }
@@ -40,23 +41,26 @@ export function quoteReducer(state: QuoteDraft, action: QuoteAction): QuoteDraft
       const fulfillment = options?.fulfillment ?? state.fulfillment;
       const cep = options?.cep ?? state.address.cep;
       const deliverySlot = options?.deliverySlot ?? state.deliverySlot;
-      const hasShippingValue = options?.shippingAmountCents !== undefined;
-      const shippingAmount = options?.shippingAmountCents;
+      const hasShippingEstimate = options?.shippingEstimate !== undefined;
+      const shippingEstimate = options?.shippingEstimate;
+
+      const cepChanged = cep !== state.address.cep;
+      const address = cepChanged
+        ? { cep, street: "", number: "", complement: "", district: "", city: "", state: "" }
+        : { ...state.address, cep };
 
       return touch({
         ...state,
         items,
         fulfillment,
         deliverySlot: fulfillment === "delivery" ? deliverySlot : "",
-        address: { ...state.address, cep },
+        address,
         shippingQuote: fulfillment !== "delivery"
           ? { status: "not_requested", amountCents: 0, cep }
-          : hasShippingValue
-            ? {
-                status: shippingAmount === null ? "unavailable" : "calculated",
-                amountCents: shippingAmount ?? 0,
-                cep,
-              }
+          : hasShippingEstimate
+            ? shippingEstimate
+              ? { ...shippingEstimate, cep }
+              : { status: "unavailable", amountCents: 0, cep }
             : state.shippingQuote,
       });
     }
@@ -90,11 +94,14 @@ export function quoteReducer(state: QuoteDraft, action: QuoteAction): QuoteDraft
 
     case "UPDATE_ADDRESS": {
       const address = { ...state.address, ...action.patch };
-      const cepChanged = action.patch.cep !== undefined && action.patch.cep !== state.address.cep;
+      const routeFields: Array<keyof QuoteAddress> = ["cep", "street", "number", "district", "city", "state"];
+      const routeChanged = routeFields.some((field) => (
+        action.patch[field] !== undefined && action.patch[field] !== state.address[field]
+      ));
       return touch({
         ...state,
         address,
-        shippingQuote: cepChanged
+        shippingQuote: routeChanged
           ? { status: "not_requested", amountCents: 0, cep: address.cep }
           : state.shippingQuote,
       });
@@ -105,11 +112,9 @@ export function quoteReducer(state: QuoteDraft, action: QuoteAction): QuoteDraft
         ...state,
         shippingQuote: state.fulfillment !== "delivery"
           ? { status: "not_requested", amountCents: 0, cep: action.cep }
-          : {
-              status: action.amountCents === null ? "unavailable" : "calculated",
-              amountCents: action.amountCents ?? 0,
-              cep: action.cep,
-            },
+          : action.estimate
+            ? { ...action.estimate, cep: action.cep }
+            : { status: "unavailable", amountCents: 0, cep: action.cep },
       });
 
     case "UPDATE_CUSTOMER":

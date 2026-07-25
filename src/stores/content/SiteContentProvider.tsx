@@ -1,30 +1,33 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { DEFAULT_PUBLIC_LEGAL_PAGES, DEFAULT_SITE_SETTINGS } from "../../data/mocks/siteContent";
+import { createEmptySiteSettings } from "../../domain/content/emptyContent";
 import type { PublicLegalPage, SiteSettingsDocument } from "../../domain/content/types";
 import { loadPublicSiteContent } from "../../services/content/contentApi";
 
 interface SiteContentContextValue {
   siteSettings: SiteSettingsDocument;
   legalPages: PublicLegalPage[];
-  status: "loading" | "ready" | "fallback";
+  status: "loading" | "ready" | "empty" | "error";
   refreshSiteContent: () => Promise<void>;
 }
 
 const SiteContentContext = createContext<SiteContentContextValue | null>(null);
 
 export function SiteContentProvider({ children }: { children: React.ReactNode }) {
-  const [siteSettings, setSiteSettings] = useState<SiteSettingsDocument>(DEFAULT_SITE_SETTINGS);
-  const [legalPages, setLegalPages] = useState<PublicLegalPage[]>(DEFAULT_PUBLIC_LEGAL_PAGES);
+  const [siteSettings, setSiteSettings] = useState<SiteSettingsDocument>(() => createEmptySiteSettings());
+  const [legalPages, setLegalPages] = useState<PublicLegalPage[]>([]);
   const [status, setStatus] = useState<SiteContentContextValue["status"]>("loading");
 
   const refreshSiteContent = useCallback(async () => {
+    setStatus("loading");
     try {
       const content = await loadPublicSiteContent();
-      setSiteSettings(content.siteSettings);
+      setSiteSettings(content.siteSettings ?? createEmptySiteSettings());
       setLegalPages(content.legalPages);
-      setStatus("ready");
+      setStatus(content.siteSettings || content.legalPages.length > 0 ? "ready" : "empty");
     } catch {
-      setStatus("fallback");
+      setSiteSettings(createEmptySiteSettings());
+      setLegalPages([]);
+      setStatus("error");
     }
   }, []);
 
