@@ -1,11 +1,38 @@
+# Dependencies and build output
 node_modules/
 dist/
 .vite/
+coverage/
+
+# Local environment files
 .env
 .env.*
 !.env.example
-coverage/
+
+# Generated reports and logs
+reports/*
+!reports/.gitkeep
 *.log
+
+# Sensitive files that must never be versioned
+*.dump
+*.backup
+*.bak
+*.sqlite
+*.sqlite3
+*.db
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Editors and operating systems
+.vscode/
+.idea/
 .DS_Store
-# Generated Stage A reports
-reports/stage-a/
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.swp
+*~
