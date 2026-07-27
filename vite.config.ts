@@ -3,6 +3,12 @@ import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 
+function normalizeBasePath(value: string | undefined) {
+  const trimmed = value?.trim()
+  if (!trimmed) return '/'
+  const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+  return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`
+}
 
 function figmaAssetResolver() {
   return {
@@ -17,6 +23,7 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig({
+  base: normalizeBasePath(process.env.VITE_BASE_PATH),
   plugins: [
     figmaAssetResolver(),
     // The React and Tailwind plugins are both required for Make, even if

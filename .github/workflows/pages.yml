@@ -31,14 +31,16 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
       - name: Build and validate production site
         env:
           VITE_API_BASE_URL: https://api.rent4moms.com.br/api/v1
           VITE_CEP_API_BASE_URL: https://viacep.com.br/ws
+          VITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}
         run: npm run pages:build
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4

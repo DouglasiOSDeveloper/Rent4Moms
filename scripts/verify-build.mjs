@@ -6,6 +6,21 @@ const dist = new URL('../dist/', import.meta.url);
 const html = await readFile(new URL('index.html', dist), 'utf8');
 const failures = [];
 
+function normalizeBasePath(value) {
+  const trimmed = value?.trim();
+  if (!trimmed) return '/';
+  const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`;
+}
+
+const expectedBasePath = normalizeBasePath(process.env.VITE_BASE_PATH);
+for (const match of html.matchAll(/\b(?:src|href)="([^"]+)"/g)) {
+  const url = match[1];
+  if (url.startsWith('/') && !url.startsWith(expectedBasePath)) {
+    failures.push(`local URL does not use the configured base path ${expectedBasePath}: ${url}`);
+  }
+}
+
 if (!html.includes('lang="pt-BR"')) failures.push('index.html must declare lang="pt-BR"');
 if (!html.includes('Rent4Moms')) failures.push('index.html must contain the Rent4Moms title');
 if (/noindex/i.test(html)) failures.push('production build must not contain noindex');
