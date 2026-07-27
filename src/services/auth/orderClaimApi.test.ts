@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../api/apiClient";
 import { completeOrderClaim, startOrderClaim, verifyOrderClaim } from "./orderClaimApi";
 
 describe("order claim API", () => {
@@ -17,7 +18,7 @@ describe("order claim API", () => {
 
     const result = await startOrderClaim("ORC-2030-ABCDEF12", "529.982.247-25");
     expect(result.developmentCode).toBe("123456");
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/claim-order", expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith(`${API_BASE_URL}/auth/claim-order`, expect.objectContaining({
       method: "POST",
       credentials: "include",
       body: JSON.stringify({ quoteCode: "ORC-2030-ABCDEF12", cpf: "529.982.247-25" }),

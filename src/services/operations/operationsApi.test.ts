@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { API_BASE_URL } from "../api/apiClient";
 import {
   addOrderNote,
   applyOrderLifecycle,
@@ -15,7 +16,7 @@ describe("operationsApi", () => {
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
 
     await saveManualPayment("quote-1", { status: "received", amountCents: 39900, method: "pix", receivedAt: null, note: "" });
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/operations/orders/quote-1/payment", expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith(`${API_BASE_URL}/admin/operations/orders/quote-1/payment`, expect.objectContaining({
       method: "PATCH",
       credentials: "include",
       body: JSON.stringify({ status: "received", amountCents: 39900, method: "pix", receivedAt: null, note: "" }),
@@ -41,7 +42,7 @@ describe("operationsApi", () => {
 
     await applyOrderLifecycle("quote-1", { action: "deliver", note: "Entregue", responsible: "Equipe" });
     await addOrderNote("quote-1", "Cliente avisado");
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/v1/admin/operations/orders/quote-1/lifecycle", expect.objectContaining({ method: "POST" }));
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/v1/admin/operations/orders/quote-1/notes", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(1, `${API_BASE_URL}/admin/operations/orders/quote-1/lifecycle`, expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, `${API_BASE_URL}/admin/operations/orders/quote-1/notes`, expect.objectContaining({ method: "POST" }));
   });
 });
