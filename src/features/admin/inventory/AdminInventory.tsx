@@ -22,6 +22,9 @@ export function AdminInventory() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | InventoryUnitStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | InventoryItemType>("all");
+  const [movementSearch, setMovementSearch] = useState("");
+  const [movementTypeFilter, setMovementTypeFilter] = useState<"all" | InventoryItemType>("all");
+  const [movementStatusFilter, setMovementStatusFilter] = useState<"all" | InventoryUnitStatus>("all");
   const [editing, setEditing] = useState<InventoryUnit | "new" | null>(null);
   const itemOptions = useMemo(() => ({
     chair_model: chairModels.filter((item) => item.isActive).map((item) => ({ id: item.id, label: `${item.name} (${item.version})` })),
@@ -43,6 +46,29 @@ export function AdminInventory() {
     const q = search.trim().toLowerCase();
     return overview.units.filter((unit) => (statusFilter === "all" || unit.status === statusFilter) && (typeFilter === "all" || unit.itemType === typeFilter) && (!q || `${unit.code} ${unit.label} ${unit.itemId} ${unit.location}`.toLowerCase().includes(q)));
   }, [overview.units, search, statusFilter, typeFilter]);
+
+  const filteredMovements = useMemo(() => {
+    const query = movementSearch.trim().toLowerCase();
+    const unitsById = new Map(overview.units.map((unit) => [unit.id, unit]));
+    return overview.movements.filter((movement) => {
+      const unit = unitsById.get(movement.unitId);
+      const itemType = unit?.itemType;
+      return (
+        (movementTypeFilter === "all" || itemType === movementTypeFilter)
+        && (movementStatusFilter === "all" || movement.toStatus === movementStatusFilter)
+        && (!query || [
+          movement.unitCode,
+          movement.reason,
+          movement.quoteId ?? "",
+          unit?.label ?? "",
+          unit?.itemId ?? "",
+          itemType ? TYPE_LABELS[itemType] : "",
+          movement.fromStatus ? STATUS_LABELS[movement.fromStatus] : "Entrada",
+          STATUS_LABELS[movement.toStatus],
+        ].join(" ").toLowerCase().includes(query))
+      );
+    });
+  }, [movementSearch, movementStatusFilter, movementTypeFilter, overview.movements, overview.units]);
 
   const expire = async () => {
     setBusy(true); setError(""); setNotice("");
@@ -83,7 +109,15 @@ export function AdminInventory() {
     </div>}
 
     {tab === "allocations" && <div className="bg-white rounded-xl border border-border overflow-x-auto"><table className="w-full"><thead className="bg-secondary border-b border-border"><tr>{["Pedido","Unidade","Componente","Status","Expira","Liberação"].map((h)=><th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{overview.allocations.map((a)=><tr key={a.id}><td className="px-4 py-3 text-xs font-mono">{a.quoteId.slice(0,8)}…</td><td className="px-4 py-3 text-xs font-mono">{a.unitCode}</td><td className="px-4 py-3 text-sm text-muted-foreground">{TYPE_LABELS[a.itemType]}</td><td className="px-4 py-3"><StatusBadge status={a.status==='active'?"Ativo":a.status==='expired'?"Expirado":"Concluído"}/></td><td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{dateTime(a.expiresAt)}</td><td className="px-4 py-3 text-xs text-muted-foreground">{a.releaseReason??"—"}</td></tr>)}</tbody></table></div>}
-    {tab === "movements" && <div className="bg-white rounded-xl border border-border overflow-x-auto"><table className="w-full"><thead className="bg-secondary border-b border-border"><tr>{["Data","Unidade","Origem","Destino","Motivo","Pedido"].map((h)=><th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{overview.movements.map((m)=><tr key={m.id}><td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{dateTime(m.createdAt)}</td><td className="px-4 py-3 text-xs font-mono">{m.unitCode}</td><td className="px-4 py-3 text-sm text-muted-foreground">{m.fromStatus?STATUS_LABELS[m.fromStatus]:"Entrada"}</td><td className="px-4 py-3"><StatusBadge status={STATUS_LABELS[m.toStatus]}/></td><td className="px-4 py-3 text-sm text-muted-foreground">{m.reason}</td><td className="px-4 py-3 text-xs font-mono text-muted-foreground">{m.quoteId?`${m.quoteId.slice(0,8)}…`:"—"}</td></tr>)}</tbody></table></div>}
+    {tab === "movements" && <div className="bg-white rounded-xl border border-border">
+      <div className="p-4 border-b border-border flex flex-wrap gap-3">
+        <div className="relative flex-1 min-w-64"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/><input value={movementSearch} onChange={(event)=>setMovementSearch(event.target.value)} placeholder="Código, item, motivo, status ou pedido..." className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-input-background text-sm"/></div>
+        <select value={movementTypeFilter} onChange={(event)=>setMovementTypeFilter(event.target.value as "all"|InventoryItemType)} className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm"><option value="all">Todos os tipos</option>{Object.entries(TYPE_LABELS).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
+        <select value={movementStatusFilter} onChange={(event)=>setMovementStatusFilter(event.target.value as "all"|InventoryUnitStatus)} className="px-3 py-2 rounded-lg border border-border bg-input-background text-sm"><option value="all">Todos os destinos</option>{STATUSES.map((status)=><option key={status} value={status}>{STATUS_LABELS[status]}</option>)}</select>
+      </div>
+      <div className="overflow-x-auto"><table className="w-full"><thead className="bg-secondary border-b border-border"><tr>{["Data","Unidade","Origem","Destino","Motivo","Pedido"].map((h)=><th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{filteredMovements.map((m)=><tr key={m.id}><td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{dateTime(m.createdAt)}</td><td className="px-4 py-3 text-xs font-mono">{m.unitCode}</td><td className="px-4 py-3 text-sm text-muted-foreground">{m.fromStatus?STATUS_LABELS[m.fromStatus]:"Entrada"}</td><td className="px-4 py-3"><StatusBadge status={STATUS_LABELS[m.toStatus]}/></td><td className="px-4 py-3 text-sm text-muted-foreground">{m.reason}</td><td className="px-4 py-3 text-xs font-mono text-muted-foreground">{m.quoteId?`${m.quoteId.slice(0,8)}…`:"—"}</td></tr>)}{!filteredMovements.length&&<tr><td colSpan={6} className="p-10 text-center text-muted-foreground">Nenhuma movimentação encontrada.</td></tr>}</tbody></table></div>
+      <div className="p-4 border-t border-border text-sm text-muted-foreground">{filteredMovements.length} movimentação(ões)</div>
+    </div>}
     {editing && <UnitModal editing={editing} itemOptions={itemOptions} onClose={()=>setEditing(null)} onSaved={async()=>{setEditing(null);await Promise.all([reload(),refreshCatalog()]);}}/>}
   </div>;
 }

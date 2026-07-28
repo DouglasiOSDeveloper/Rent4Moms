@@ -2,15 +2,37 @@ import type {
   AccountOrderDetail, CustomerExperienceAdminQueue, ProductReview, ProductReviewsResponse,
   RenewalRequest, ReviewStatus, SupportRequest, SupportStatus,
 } from "../../domain/customerExperience/types";
-import { API_BASE_URL, apiRequest } from "../api/apiClient";
+import { apiRequest, resolveApiResourceUrl } from "../api/apiClient";
 
-function resolveContentUrl(path: string): string {
-  if (/^https?:\/\//i.test(path)) return path;
-  if (path.startsWith("/api/v1") && /^https?:\/\//i.test(API_BASE_URL)) return `${API_BASE_URL}${path.slice("/api/v1".length)}`;
-  return path;
-}
 function normalizeDetail(detail: AccountOrderDetail): AccountOrderDetail {
-  return { ...detail, attachments: detail.attachments.map((item) => ({ ...item, contentUrl: resolveContentUrl(item.contentUrl) })) };
+  return {
+    ...detail,
+    quote: {
+      ...detail.quote,
+      payload: {
+        ...detail.quote.payload,
+        items: detail.quote.payload.items.map((item) => ({
+          ...item,
+          productSnapshot: {
+            ...item.productSnapshot,
+            photo: resolveApiResourceUrl(item.productSnapshot.photo),
+            ...(item.productSnapshot.assembly
+              ? {
+                  assembly: {
+                    ...item.productSnapshot.assembly,
+                    selectedImage: resolveApiResourceUrl(item.productSnapshot.assembly.selectedImage),
+                  },
+                }
+              : {}),
+          },
+        })),
+      },
+    },
+    attachments: detail.attachments.map((item) => ({
+      ...item,
+      contentUrl: resolveApiResourceUrl(item.contentUrl),
+    })),
+  };
 }
 export async function loadAccountOrder(quoteId: string): Promise<AccountOrderDetail> {
   return normalizeDetail(await apiRequest<AccountOrderDetail>(`/account/orders/${quoteId}`));

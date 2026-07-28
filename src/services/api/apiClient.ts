@@ -5,10 +5,11 @@ export function resolveApiResourceUrl(value: string, apiBaseUrl = API_BASE_URL):
   const normalized = value.trim();
   if (!normalized) return "";
   if (/^(https?:|data:|blob:)/i.test(normalized)) return normalized;
-  if (normalized.startsWith("/api/v1") && /^https?:\/\//i.test(apiBaseUrl)) {
-    return `${apiBaseUrl}${normalized.slice("/api/v1".length)}`;
+  const rooted = normalized.startsWith("api/v1/") ? `/${normalized}` : normalized;
+  if (rooted.startsWith("/api/v1") && /^https?:\/\//i.test(apiBaseUrl)) {
+    return `${apiBaseUrl}${rooted.slice("/api/v1".length)}`;
   }
-  return normalized.startsWith("/") ? normalized : "";
+  return rooted.startsWith("/") ? rooted : "";
 }
 
 export class ApiError extends Error {

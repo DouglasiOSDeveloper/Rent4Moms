@@ -74,6 +74,21 @@ export function StatusBadge({ status }: { status: string }) {
     "Em manutenção": { color: "bg-orange-50 text-orange-700 border border-orange-200", icon: <Wrench size={11} /> },
     "Indisponível": { color: "bg-red-50 text-red-700 border border-red-200", icon: <XCircle size={11} /> },
     "Baixada": { color: "bg-gray-50 text-gray-500 border border-gray-200", icon: <Archive size={11} /> },
+    "Aguardando": { color: "bg-gray-50 text-gray-700 border border-gray-200", icon: <Clock size={11} /> },
+    "Em andamento": { color: "bg-blue-50 text-blue-700 border border-blue-200", icon: <Activity size={11} /> },
+    "Secagem": { color: "bg-amber-50 text-amber-700 border border-amber-200", icon: <Droplets size={11} /> },
+    "Inspeção": { color: "bg-purple-50 text-purple-700 border border-purple-200", icon: <Eye size={11} /> },
+    "Aprovada": { color: "bg-green-50 text-green-700 border border-green-200", icon: <CheckCircle size={11} /> },
+    "Reprovada": { color: "bg-red-50 text-red-700 border border-red-200", icon: <XCircle size={11} /> },
+    "Aberta": { color: "bg-blue-50 text-blue-700 border border-blue-200", icon: <Wrench size={11} /> },
+    "Diagnóstico": { color: "bg-purple-50 text-purple-700 border border-purple-200", icon: <Eye size={11} /> },
+    "Aguardando peças": { color: "bg-amber-50 text-amber-700 border border-amber-200", icon: <Clock size={11} /> },
+    "Em reparo": { color: "bg-orange-50 text-orange-700 border border-orange-200", icon: <Wrench size={11} /> },
+    "Em teste": { color: "bg-cyan-50 text-cyan-700 border border-cyan-200", icon: <Activity size={11} /> },
+    "Sem reparo": { color: "bg-red-50 text-red-700 border border-red-200", icon: <XCircle size={11} /> },
+    "Pendente": { color: "bg-gray-50 text-gray-700 border border-gray-200", icon: <Clock size={11} /> },
+    "Recebido": { color: "bg-green-50 text-green-700 border border-green-200", icon: <CheckCircle size={11} /> },
+    "Parcial": { color: "bg-amber-50 text-amber-700 border border-amber-200", icon: <Clock size={11} /> },
   };
   const style = map[status] || { color: "bg-gray-50 text-gray-600 border border-gray-200", icon: <Hash size={11} /> };
   return (

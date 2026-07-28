@@ -39,15 +39,18 @@ export function quoteReducer(state: QuoteDraft, action: QuoteAction): QuoteDraft
         : [...state.items, nextItem];
       const options = action.options;
       const fulfillment = options?.fulfillment ?? state.fulfillment;
-      const cep = options?.cep ?? state.address.cep;
+      const optionAddress = options?.address;
+      const cep = optionAddress?.cep ?? options?.cep ?? state.address.cep;
       const deliverySlot = options?.deliverySlot ?? state.deliverySlot;
       const hasShippingEstimate = options?.shippingEstimate !== undefined;
       const shippingEstimate = options?.shippingEstimate;
 
       const cepChanged = cep !== state.address.cep;
-      const address = cepChanged
-        ? { cep, street: "", number: "", complement: "", district: "", city: "", state: "" }
-        : { ...state.address, cep };
+      const address = optionAddress
+        ? { ...optionAddress, cep }
+        : cepChanged
+          ? { cep, street: "", number: "", complement: "", district: "", city: "", state: "" }
+          : { ...state.address, cep };
 
       return touch({
         ...state,

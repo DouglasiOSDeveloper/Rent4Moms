@@ -169,6 +169,30 @@ describe("quote draft", () => {
     });
   });
 
+  it("keeps the complete address calculated on the product page", () => {
+    const address = {
+      cep: "71925-180",
+      street: "Quadra 206",
+      number: "9",
+      complement: "Bloco A",
+      district: "Sul (Águas Claras)",
+      city: "Brasília",
+      state: "DF",
+    };
+    const draft = quoteReducer(createEmptyQuoteDraft(), {
+      type: "ADD_PRODUCT",
+      product,
+      options: {
+        periodDays: 30,
+        startDate: "2026-08-01",
+        fulfillment: "delivery",
+        address,
+      },
+    });
+
+    expect(draft.address).toEqual(address);
+  });
+
   it("invalidates the freight preview when a route-relevant address field changes", () => {
     let draft = createEmptyQuoteDraft();
     draft = {

@@ -118,7 +118,7 @@ function ProductRoute({ navigate }: { navigate: NavigateToPage }) {
       deliverySettings={deliverySettings}
       existingItem={draft.items.find((item) => item.productId === productId)}
       initialFulfillment={draft.fulfillment}
-      initialCep={draft.address.cep}
+      initialAddress={draft.address}
       initialDeliverySlot={draft.deliverySlot}
     />
   );

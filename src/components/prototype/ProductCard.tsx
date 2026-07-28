@@ -14,15 +14,16 @@ import { AvailabilityBadge, Btn, cn } from "./PrototypeUI";
 import { calculateRentalPrice } from "../../domain/pricing/pricingEngine";
 import { formatMoneyFromCents } from "../../lib/money";
 
-export function ProductCard({ product, categoryNames, navigate, onAddToQuote, isInQuote, isComparing, onToggleCompare }: {
+export function ProductCard({ product, categoryNames, navigate, onAddToQuote, isInQuote, isComparing, onToggleCompare, actionsMode = "full" }: {
   product: Product; categoryNames: string[]; navigate: (p: Page, params?: Record<string, string>) => void;
   onAddToQuote: (p: Product) => void; isInQuote: boolean; isComparing: boolean;
   onToggleCompare: (id: string) => void;
+  actionsMode?: "full" | "details-only";
 }) {
   const [fav, setFav] = useState(false);
-  const weeklyPrice = calculateRentalPrice({
+  const monthlyPrice = calculateRentalPrice({
     rates: { daily: product.priceDaily, weekly: product.priceWeekly, monthly: product.priceMonthly },
-    days: 7,
+    days: 30,
   });
   return (
     <div className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group flex flex-col">
@@ -68,28 +69,32 @@ export function ProductCard({ product, categoryNames, navigate, onAddToQuote, is
         </div>
         <div className="mt-auto">
           <p className="text-xs text-muted-foreground">A partir de</p>
-          <p className="text-xl font-bold text-foreground">{formatMoneyFromCents(weeklyPrice.totalCents)}<span className="text-sm font-normal text-muted-foreground">/semana</span></p>
+          <p className="text-xl font-bold text-foreground">{formatMoneyFromCents(monthlyPrice.totalCents)}<span className="text-sm font-normal text-muted-foreground"> / 30 dias</span></p>
           <p className="text-xs text-muted-foreground mt-0.5">Valor final calculado conforme o período</p>
         </div>
         <div className="flex gap-2 mt-2">
           <Btn variant="outline" size="sm" onClick={() => navigate("product", { productId: product.id })} className="flex-1">
             <Eye size={14} />Ver produto
           </Btn>
-          <Btn
-            variant={isInQuote ? "secondary" : "primary"}
-            size="sm"
-            onClick={() => onAddToQuote(product)}
-            className="flex-1"
-          >
-            {isInQuote ? <><Check size={14} />Adicionado</> : <><Plus size={14} />Orçamento</>}
-          </Btn>
+          {actionsMode === "full" && (
+            <Btn
+              variant={isInQuote ? "secondary" : "primary"}
+              size="sm"
+              onClick={() => onAddToQuote(product)}
+              className="flex-1"
+            >
+              {isInQuote ? <><Check size={14} />Adicionado</> : <><Plus size={14} />Orçamento</>}
+            </Btn>
+          )}
         </div>
-        <button
-          onClick={() => onToggleCompare(product.id)}
-          className={cn("text-xs underline text-center transition-colors", isComparing ? "text-primary font-medium" : "text-muted-foreground hover:text-foreground")}
-        >
-          {isComparing ? "✓ Comparando" : "Comparar produto"}
-        </button>
+        {actionsMode === "full" && (
+          <button
+            onClick={() => onToggleCompare(product.id)}
+            className={cn("text-xs underline text-center transition-colors", isComparing ? "text-primary font-medium" : "text-muted-foreground hover:text-foreground")}
+          >
+            {isComparing ? "✓ Comparando" : "Comparar produto"}
+          </button>
+        )}
       </div>
     </div>
   );

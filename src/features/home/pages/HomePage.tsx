@@ -145,7 +145,7 @@ export function HomePage({ navigate, onAddToQuote, quoteItemIds }: {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {featured.map(p => (
               <ProductCard
-                key={p.id} product={p} categoryNames={getCategoryNames(p, publicCategories)} navigate={navigate}
+                key={p.id} product={p} actionsMode="details-only" categoryNames={getCategoryNames(p, publicCategories)} navigate={navigate}
                 onAddToQuote={onAddToQuote}
                 isInQuote={quoteItemIds.includes(p.id)}
                 isComparing={compareItems.includes(p.id)}

@@ -126,6 +126,7 @@ export interface AddProductToQuoteOptions {
   fulfillment?: FulfillmentMethod;
   deliverySlot?: string;
   cep?: string;
+  address?: QuoteAddress;
   shippingEstimate?: ShippingEstimate | null;
   rates?: RentalRateTable;
   baseRates?: RentalRateTable;

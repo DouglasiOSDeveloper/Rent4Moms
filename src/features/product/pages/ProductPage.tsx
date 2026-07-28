@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Calendar,
   Check,
   ChevronRight,
   Droplets,
   Info,
-  MapPin,
   MessageCircle,
   Minus,
   PackageCheck,
@@ -15,9 +14,9 @@ import {
   Star,
   Truck,
 } from "lucide-react";
+import { AddressFields } from "../../../components/forms/AddressFields";
 import { DeliverySlotSelect } from "../../../components/forms/DeliverySlotSelect";
 import { EmptyState, ErrorState, LoadingState } from "../../../components/states/DataState";
-import { MaskedInput } from "../../../components/forms/MaskedInput";
 import { ProductCard } from "../../../components/prototype/ProductCard";
 import { AvailabilityBadge, Btn, Input, cn } from "../../../components/prototype/PrototypeUI";
 import { getAngleLabel, resolveAssemblyImageUrl } from "../../../domain/catalog/assemblyImages";
@@ -38,14 +37,14 @@ import { isDeliverySlotAvailable } from "../../../domain/delivery/slots";
 import type { DeliverySettings } from "../../../domain/delivery/types";
 import { calculateRentalPrice, normalizeProductPeriodPricing } from "../../../domain/pricing/pricingEngine";
 import type { RentalPriceBreakdown } from "../../../domain/pricing/types";
-import type { AddProductToQuoteOptions, FulfillmentMethod, QuoteAssemblySnapshot, QuoteItem } from "../../../domain/quote/types";
+import type { AddProductToQuoteOptions, FulfillmentMethod, QuoteAddress, QuoteAssemblySnapshot, QuoteItem } from "../../../domain/quote/types";
 import type { Page, Product } from "../../../domain/shared/types";
+import { isCompleteShippingAddress } from "../../../domain/shipping/address";
 import type { ShippingEstimate } from "../../../domain/shipping/types";
 import { addDays, formatDateBR, getTomorrowIsoDate, isIsoDateOnOrAfter } from "../../../lib/dates";
 import { maskCep } from "../../../lib/masks";
 import { formatMoneyFromCents } from "../../../lib/money";
 import { buildWhatsAppUrl } from "../../../lib/contact";
-import { isValidCep } from "../../../lib/validators";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
 import { useSiteContent } from "../../../stores/content/SiteContentProvider";
 import type { ProductReview, ProductReviewsResponse } from "../../../domain/customerExperience/types";
@@ -85,7 +84,7 @@ interface ProductPageProps {
   deliverySettings: DeliverySettings;
   existingItem?: QuoteItem | undefined;
   initialFulfillment: FulfillmentMethod;
-  initialCep: string;
+  initialAddress: QuoteAddress;
   initialDeliverySlot: string;
 }
 
@@ -114,7 +113,7 @@ function ProductPageContent({
   deliverySettings,
   existingItem,
   initialFulfillment,
-  initialCep,
+  initialAddress,
   initialDeliverySlot,
 }: ProductPageProps & { product: Product }) {
   const catalog = useCatalog();
@@ -129,7 +128,7 @@ function ProductPageContent({
   const [period, setPeriod] = useState<30 | 60 | 90 | null>(
     existingPeriod === 30 || existingPeriod === 60 || existingPeriod === 90 ? existingPeriod : null,
   );
-  const [cep, setCep] = useState(maskCep(initialCep));
+  const [address, setAddress] = useState<QuoteAddress>(() => ({ ...initialAddress, cep: maskCep(initialAddress.cep) }));
   const [delivery, setDelivery] = useState<FulfillmentMethod>(initialFulfillment);
   const [deliverySlot, setDeliverySlot] = useState(initialDeliverySlot);
   const [productErrors, setProductErrors] = useState<Record<string, string>>({});
@@ -145,6 +144,14 @@ function ProductPageContent({
   const [shippingEstimate, setShippingEstimate] = useState<ShippingEstimate | null>(null);
   const [shippingPending, setShippingPending] = useState(false);
   const [shippingMessage, setShippingMessage] = useState("");
+  const updateAddress = useCallback((patch: Partial<QuoteAddress>) => {
+    setAddress((current) => ({ ...current, ...patch }));
+    setProductErrors((current) => {
+      const next = { ...current };
+      for (const field of Object.keys(patch)) delete next[field];
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     setSelectedCoverId(existingAssembly?.cover.id ?? null);
@@ -216,7 +223,7 @@ function ProductPageContent({
   const endDate = useMemo(() => period && startDate ? addDays(startDate, period) : "", [startDate, period]);
   useEffect(() => {
     let active = true;
-    if (delivery !== "delivery" || !isValidCep(cep)) {
+    if (delivery !== "delivery" || !isCompleteShippingAddress(address)) {
       setShippingEstimate(null);
       setShippingPending(false);
       setShippingMessage("");
@@ -226,15 +233,7 @@ function ProductPageContent({
     setShippingPending(true);
     setShippingMessage("");
     const timer = window.setTimeout(() => {
-      void estimateRemoteShipping({
-        cep,
-        street: "",
-        number: "",
-        complement: "",
-        district: "",
-        city: "",
-        state: "",
-      })
+      void estimateRemoteShipping(address)
         .then((estimate) => { if (active) setShippingEstimate(estimate); })
         .catch((error: unknown) => {
           if (!active) return;
@@ -244,7 +243,7 @@ function ProductPageContent({
         .finally(() => { if (active) setShippingPending(false); });
     }, 350);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [cep, delivery]);
+  }, [address, delivery]);
   const shippingCostCents = shippingEstimate?.amountCents ?? null;
   const localPriceEstimate = useMemo(() => period ? calculateRentalPrice({ baseRates, coverRates, reducerRates, periodPricing, days: period, quantity: qty }) : null, [period, baseRates, coverRates, reducerRates, periodPricing, qty]);
 
@@ -351,9 +350,15 @@ function ProductPageContent({
     if (chairModel && !selectedCover) nextErrors.cover = "Escolha um pano compatível.";
     if (!canAddConfiguredProduct) nextErrors.configuration = "A composição selecionada não está disponível.";
     if (delivery === "delivery") {
-      if (!isValidCep(cep)) nextErrors.cep = "Informe um CEP válido com 8 dígitos.";
-      else if (shippingPending) nextErrors.cep = "Aguarde o cálculo do frete.";
-      else if (shippingEstimate === null) nextErrors.cep = shippingMessage || "Não foi possível calcular a entrega para este CEP.";
+      if (address.cep.replace(/\D/g, "").length !== 8) nextErrors.cep = "Informe um CEP válido com 8 dígitos.";
+      if (!address.street.trim()) nextErrors.street = "Informe a rua ou o logradouro.";
+      if (!address.number.trim()) nextErrors.number = "Informe o número ou lote.";
+      if (!address.city.trim()) nextErrors.city = "Informe a cidade.";
+      if (!/^[A-Za-z]{2}$/.test(address.state.trim())) nextErrors.state = "Informe a UF com 2 letras.";
+      if (Object.keys(nextErrors).some((field) => ["cep", "street", "number", "city", "state"].includes(field))) {
+        nextErrors.shipping = "Preencha o endereço completo para calcular o frete.";
+      } else if (shippingPending) nextErrors.shipping = "Aguarde o cálculo do frete.";
+      else if (shippingEstimate === null) nextErrors.shipping = shippingMessage || "Não foi possível calcular a entrega para este endereço.";
       if (!deliverySlot) nextErrors.deliverySlot = "Selecione o horário para receber a entrega.";
       else if (!isDeliverySlotAvailable(deliverySlot, deliverySettings)) nextErrors.deliverySlot = "O horário escolhido não está disponível.";
     }
@@ -400,7 +405,8 @@ function ProductPageContent({
       quantity: qty,
       fulfillment: delivery,
       deliverySlot: delivery === "delivery" ? deliverySlot : "",
-      cep,
+      cep: address.cep,
+      address,
       shippingEstimate: delivery === "delivery" ? shippingEstimate : null,
       rates: configuredRates,
       baseRates,
@@ -611,19 +617,7 @@ function ProductPageContent({
               {period && startDate && endDate && <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-accent/10 border border-accent/30 rounded-xl text-sm"><Calendar size={14} className="text-accent shrink-0" /><span className="text-foreground">Devolução prevista: <strong>{formatDateBR(endDate)}</strong></span></div>}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <MaskedInput
-                label="CEP"
-                placeholder="00000-000"
-                value={cep}
-                onChange={(value) => { setCep(value); setProductErrors((current) => ({ ...current, cep: "" })); }}
-                mask={maskCep}
-                required={delivery === "delivery"}
-                maxLength={9}
-                inputMode="numeric"
-                icon={<MapPin size={14} />}
-                error={productErrors.cep}
-              />
+            <div className="mb-3 max-w-xs">
               <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-foreground">Quantidade</label><div className="flex items-center border border-border rounded-xl overflow-hidden bg-input-background"><button type="button" onClick={() => setQty(Math.max(1, qty - 1))} className="px-3 py-2.5 hover:bg-muted transition-colors"><Minus size={14} /></button><span className="flex-1 text-center font-medium">{qty}</span><button type="button" onClick={() => setQty(Math.min(Number.isFinite(availableQuantity) ? Math.max(1, availableQuantity) : qty + 1, qty + 1))} className="px-3 py-2.5 hover:bg-muted transition-colors"><Plus size={14} /></button></div></div>
             </div>
 
@@ -634,7 +628,8 @@ function ProductPageContent({
             </div>
 
             {delivery === "delivery" && (
-              <div className="mb-3">
+              <div className="mb-4 space-y-4">
+                <AddressFields address={address} onChange={updateAddress} errors={productErrors} />
                 <DeliverySlotSelect
                   settings={deliverySettings}
                   value={deliverySlot}
@@ -642,10 +637,18 @@ function ProductPageContent({
                   required
                   error={productErrors.deliverySlot}
                 />
+                <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl border text-sm", shippingEstimate ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800")}>
+                  <Truck size={16} className="shrink-0" />
+                  {!isCompleteShippingAddress(address)
+                    ? <span>Preencha o endereço completo, incluindo número ou lote, para calcular o frete correto.</span>
+                    : shippingPending
+                      ? <span>Calculando a distância da entrega...</span>
+                      : shippingEstimate
+                        ? <span>Frete estimado: <strong>{formatMoneyFromCents(shippingEstimate.amountCents)}</strong><span className="block text-xs mt-0.5">Rota de {shippingEstimate.oneWayDistanceKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km a partir de {shippingEstimate.originLabel}.</span></span>
+                        : <span>{shippingMessage || "Não foi possível calcular a entrega para este endereço."}</span>}
+                </div>
               </div>
             )}
-
-            {delivery === "delivery" && isValidCep(cep) && <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl border text-sm mb-3", shippingEstimate ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800")}><Truck size={16} className="shrink-0" />{shippingPending ? <span>Calculando a distância da entrega...</span> : shippingEstimate ? <span>Frete estimado: <strong>{formatMoneyFromCents(shippingEstimate.amountCents)}</strong><span className="block text-xs mt-0.5">Rota de {shippingEstimate.oneWayDistanceKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km a partir de {shippingEstimate.originLabel}.</span></span> : <span>{shippingMessage || "Não foi possível calcular a entrega para este CEP."}</span>}</div>}
 
             {period && (
               <div className="bg-card rounded-xl p-4 mb-4 border border-border">

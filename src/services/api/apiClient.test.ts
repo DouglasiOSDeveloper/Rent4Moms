@@ -9,6 +9,13 @@ describe("resolveApiResourceUrl", () => {
     )).toBe("https://api.rent4moms.com.br/api/v1/media/assets/asset-1/content");
   });
 
+  it("normalizes legacy API paths without a leading slash", () => {
+    expect(resolveApiResourceUrl(
+      "api/v1/media/assets/asset-1/content",
+      "https://api.rent4moms.com.br/api/v1",
+    )).toBe("https://api.rent4moms.com.br/api/v1/media/assets/asset-1/content");
+  });
+
   it("keeps relative API paths for the local Vite proxy", () => {
     expect(resolveApiResourceUrl(
       "/api/v1/media/assets/asset-1/content",

@@ -22,11 +22,11 @@ import { formatDeliverySlotLabel } from "../../../domain/delivery/slots";
 import type { DeliverySettings } from "../../../domain/delivery/types";
 import { calculateQuotePriceSummary } from "../../../domain/pricing/pricingEngine";
 import type { FulfillmentMethod, QuoteAddress } from "../../../domain/quote/types";
+import { isCompleteShippingAddress } from "../../../domain/shipping/address";
 import type { Page } from "../../../domain/shared/types";
 import { addDays, formatDateBR, getTomorrowIsoDate } from "../../../lib/dates";
 import { maskCpf, maskPhone } from "../../../lib/masks";
 import { formatMoneyFromCents } from "../../../lib/money";
-import { isValidCep } from "../../../lib/validators";
 import { useQuote } from "../../../stores/quote/QuoteProvider";
 import { useSiteContent } from "../../../stores/content/SiteContentProvider";
 import { buildWhatsAppUrl } from "../../../lib/contact";
@@ -105,7 +105,7 @@ export function QuotePage({ navigate, deliverySettings }: {
       updateShippingQuote(null, draft.address.cep);
       return () => { active = false; };
     }
-    if (!isValidCep(draft.address.cep)) {
+    if (!isCompleteShippingAddress(draft.address)) {
       setShippingPending(false);
       setShippingMessage("");
       return () => { active = false; };
@@ -292,7 +292,7 @@ export function QuotePage({ navigate, deliverySettings }: {
                 onChange={handleAddressChange}
                 errors={errors}
               />
-              {isValidCep(draft.address.cep) && (
+              {isCompleteShippingAddress(draft.address) && (
                 <div className={cn(
                   "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm",
                   draft.shippingQuote.status === "calculated" ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800",

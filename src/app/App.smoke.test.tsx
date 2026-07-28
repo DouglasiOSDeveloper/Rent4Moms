@@ -43,6 +43,7 @@ describe("Rent4Moms frontend routing baseline", () => {
       if (url.includes("/content/site")) return new Response(JSON.stringify({ siteSettings: DEFAULT_SITE_SETTINGS, legalPages: DEFAULT_PUBLIC_LEGAL_PAGES }), { status: 200, headers: { "content-type": "application/json" } });
       if (url.includes("/settings/delivery")) return new Response(JSON.stringify({ settings: { deliverySettings: DEFAULT_DELIVERY_SETTINGS, shipping: { enabled: true, originLabel: "Estoque de teste", originAddress: { cep: "01001-000", street: "Praça da Sé", number: "1", complement: "", district: "Sé", city: "São Paulo", state: "SP" }, fuelPriceCentsPerLiter: 600, consumptionKmPerLiter: 10, multiplier: 1, minimumFeeCents: 2500, roundTrip: true, maxDistanceKm: 50 }, updatedAt: new Date(0).toISOString() } }), { status: 200, headers: { "content-type": "application/json" } });
       if (url.includes("/shipping/estimate")) return new Response(JSON.stringify({ shippingQuote: { status: "calculated", amountCents: 2500, cep: "01001-000", provider: "test_routes", formulaVersion: "distance-fuel-v1", originLabel: "Estoque de teste", oneWayDistanceKm: 5, chargedDistanceKm: 10, durationSeconds: 900, fuelLiters: 1, parameters: { fuelPriceCentsPerLiter: 600, consumptionKmPerLiter: 10, multiplier: 1, minimumFeeCents: 2500, roundTrip: true, maxDistanceKm: 50 }, calculatedAt: new Date(0).toISOString() } }), { status: 200, headers: { "content-type": "application/json" } });
+      if (url.includes("viacep.com.br/ws/01001000/json/")) return new Response(JSON.stringify({ cep: "01001-000", logradouro: "Praça da Sé", complemento: "", bairro: "Sé", localidade: "São Paulo", uf: "SP" }), { status: 200, headers: { "content-type": "application/json" } });
       return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
     });
     container = document.createElement("div");
@@ -115,6 +116,10 @@ describe("Rent4Moms frontend routing baseline", () => {
     const startDate = addDays(getTomorrowIsoDate(), 10);
     await setInputValue(dateInput!, startDate);
     await setInputValue(cepInput!, "01001-000");
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 450)); });
+    const numberInput = container.querySelector<HTMLInputElement>('input[placeholder="123"]');
+    expect(numberInput).toBeTruthy();
+    await setInputValue(numberInput!, "1");
     await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 450)); });
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
