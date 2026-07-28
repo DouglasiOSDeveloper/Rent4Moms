@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { OrderOperationDetail } from "../../domain/operations/types";
 import { API_BASE_URL } from "../api/apiClient";
 import {
   addOrderNote,
   applyOrderLifecycle,
+  normalizeOrderOperationDetailImageUrls,
   saveManualPayment,
   uploadOperationalAttachment,
 } from "./operationsApi";
@@ -23,6 +25,30 @@ describe("operationsApi", () => {
     }));
   });
 
+  it("normalizes product and attachment images returned with API-relative paths", () => {
+    const relativeUrl = "/api/v1/media/assets/asset-1/content";
+    const apiBaseUrl = "https://api.rent4moms.com.br/api/v1";
+    const detail = {
+      quote: {
+        payload: {
+          items: [{
+            productSnapshot: {
+              photo: relativeUrl,
+              assembly: { selectedImage: relativeUrl },
+            },
+          }],
+        },
+      },
+      attachments: [{ contentUrl: relativeUrl }],
+    } as unknown as OrderOperationDetail;
+
+    const normalized = normalizeOrderOperationDetailImageUrls(detail, apiBaseUrl);
+    const expected = "https://api.rent4moms.com.br/api/v1/media/assets/asset-1/content";
+    expect(normalized.quote.payload.items[0]?.productSnapshot.photo).toBe(expected);
+    expect(normalized.quote.payload.items[0]?.productSnapshot.assembly?.selectedImage).toBe(expected);
+    expect(normalized.attachments[0]?.contentUrl).toBe(expected);
+  });
+
   it("uploads photos as multipart without forcing a JSON content type", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
       attachment: { id: "attachment-1", quoteId: "quote-1", unitId: null, kind: "delivery", originalName: "foto.png", mimeType: "image/png", sizeBytes: 8, note: "", contentUrl: "/api/v1/admin/operations/attachments/attachment-1/content", createdAt: "2030-01-01T00:00:00.000Z" },
@@ -37,7 +63,15 @@ describe("operationsApi", () => {
 
   it("sends lifecycle actions and internal notes to the protected endpoints", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify({ quote: { id: "quote-1" }, allocations: [], payment: null, attachments: [], events: [], hygieneJobs: [], maintenanceJobs: [] }), { status: 200, headers: { "Content-Type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        quote: { id: "quote-1", payload: { items: [] } },
+        allocations: [],
+        payment: null,
+        attachments: [],
+        events: [],
+        hygieneJobs: [],
+        maintenanceJobs: [],
+      }), { status: 200, headers: { "Content-Type": "application/json" } }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ event: { id: "event-1" } }), { status: 201, headers: { "Content-Type": "application/json" } }));
 
     await applyOrderLifecycle("quote-1", { action: "deliver", note: "Entregue", responsible: "Equipe" });

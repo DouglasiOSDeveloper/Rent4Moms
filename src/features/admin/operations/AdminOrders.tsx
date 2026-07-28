@@ -18,6 +18,7 @@ import {
 import { listAdminQuotes, type PersistedQuote } from "../../../services/quotes/quotesApi";
 import { listAdminReservations } from "../../../services/admin/adminApi";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
+import { lifecycleActionState, type LifecycleActionId } from "./orderLifecycleUi";
 
 const PAYMENT_LABELS: Record<PaymentStatus, string> = {
   pending: "Pendente", received: "Recebido", partial: "Parcial", refunded: "Reembolsado",
@@ -160,7 +161,7 @@ function EvidenceUploader({ detail, onUploaded }: { detail: OrderOperationDetail
 }
 
 function OperationsPanel({ detail, onUpdated }: { detail: OrderOperationDetail; onUpdated: (detail: OrderOperationDetail) => void }) {
-  const [action, setAction] = useState<"reserve"|"prepare"|"deliver"|"return"|"cancel"|null>(null);
+  const [action, setAction] = useState<LifecycleActionId | null>(null);
   const [note, setNote] = useState("");
   const [responsible, setResponsible] = useState("");
   const [saving, setSaving] = useState(false);
@@ -172,15 +173,35 @@ function OperationsPanel({ detail, onUpdated }: { detail: OrderOperationDetail; 
     catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível atualizar o pedido."); }
     finally { setSaving(false); }
   };
-  const actions = [
-    { id:"reserve" as const,label:"Aprovar e reservar",icon:<CheckCircle size={14}/> },
-    { id:"prepare" as const,label:"Iniciar preparação",icon:<Package size={14}/> },
-    { id:"deliver" as const,label:"Marcar como entregue",icon:<Truck size={14}/> },
-    { id:"return" as const,label:"Registrar devolução",icon:<Archive size={14}/> },
-    { id:"cancel" as const,label:"Cancelar e liberar",icon:<XCircle size={14}/> },
+  const actions: Array<{ id: LifecycleActionId; label: string; icon: React.ReactNode }> = [
+    { id:"reserve",label:"Aprovar e reservar",icon:<CheckCircle size={14}/> },
+    { id:"prepare",label:"Iniciar preparação",icon:<Package size={14}/> },
+    { id:"deliver",label:"Marcar como entregue",icon:<Truck size={14}/> },
+    { id:"return",label:"Registrar devolução",icon:<Archive size={14}/> },
+    { id:"cancel",label:"Cancelar e liberar",icon:<XCircle size={14}/> },
   ];
-  return <Panel title="Ações do pedido" icon={<Truck size={17} className="text-primary"/>}>
-    <div className="flex flex-wrap gap-2">{actions.map((item)=><Btn key={item.id} variant={item.id==="cancel"?"danger":"outline"} size="sm" onClick={()=>setAction(item.id)}>{item.icon}{item.label}</Btn>)}</div>
+  return <Panel title="Ações do pedido" icon={<Truck size={17} className="text-primary"/>} actions={<StatusBadge status={detail.quote.status}/>}>
+    <div className="flex flex-wrap gap-2">{actions.map((item)=>{
+      const state = lifecycleActionState(detail.quote.status, item.id);
+      const selected = action === item.id;
+      const disabled = saving || state !== "available";
+      const variant = item.id === "cancel"
+        ? (selected || state === "current" ? "danger" : state === "available" ? "danger" : "outline")
+        : (selected || state === "current" ? "primary" : state === "completed" ? "secondary" : "outline");
+      return <Btn
+        key={item.id}
+        variant={variant}
+        size="sm"
+        disabled={disabled}
+        className={cn(
+          state === "current" && "!opacity-100 ring-2 ring-primary/20",
+          state === "completed" && "!opacity-100 border-emerald-200 bg-emerald-50 text-emerald-700",
+          state === "blocked" && "opacity-45",
+          selected && state === "available" && "ring-2 ring-primary/30",
+        )}
+        onClick={()=>setAction(item.id)}
+      >{item.icon}{item.label}</Btn>;
+    })}</div>
     <p className="mt-3 text-xs text-muted-foreground">Envie as fotos de entrega ou devolução na seção de evidências antes de registrar a ação correspondente.</p>
     {action&&<div className="mt-5 rounded-xl border border-border bg-secondary/50 p-4"><h3 className="font-medium">Confirmar: {actions.find((item)=>item.id===action)?.label}</h3><div className="mt-3 grid sm:grid-cols-2 gap-3"><label className="text-sm font-medium">Responsável<input value={responsible} onChange={(event)=>setResponsible(event.target.value)} placeholder="Nome da pessoa responsável" className="mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2.5"/></label><label className="text-sm font-medium">Observação<input value={note} onChange={(event)=>setNote(event.target.value)} placeholder="Estado, ocorrência ou orientação" className="mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2.5"/></label></div>{error&&<p className="mt-3 text-sm text-destructive">{error}</p>}<div className="mt-4 flex justify-end gap-2"><Btn variant="ghost" size="sm" onClick={()=>setAction(null)}>Voltar</Btn><Btn variant="primary" size="sm" disabled={saving} onClick={()=>void execute()}>{saving?<Loader2 size={14} className="animate-spin"/>:<Save size={14}/>}Confirmar</Btn></div></div>}
   </Panel>;

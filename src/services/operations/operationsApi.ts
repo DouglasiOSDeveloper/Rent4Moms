@@ -12,19 +12,42 @@ import type {
   PaymentStatus,
   QuoteOperationEvent,
 } from "../../domain/operations/types";
-import { API_BASE_URL, apiRequest } from "../api/apiClient";
+import { API_BASE_URL, apiRequest, resolveApiResourceUrl } from "../api/apiClient";
 
-function resolveAttachmentUrl(path: string): string {
-  if (/^https?:\/\//i.test(path)) return path;
-  if (path.startsWith("/api/v1") && /^https?:\/\//i.test(API_BASE_URL)) return `${API_BASE_URL}${path.slice("/api/v1".length)}`;
-  return path;
-}
-function normalizeDetail(detail: OrderOperationDetail): OrderOperationDetail {
-  return { ...detail, attachments: detail.attachments.map((attachment) => ({ ...attachment, contentUrl: resolveAttachmentUrl(attachment.contentUrl) })) };
+export function normalizeOrderOperationDetailImageUrls(
+  detail: OrderOperationDetail,
+  apiBaseUrl = API_BASE_URL,
+): OrderOperationDetail {
+  return {
+    ...detail,
+    quote: {
+      ...detail.quote,
+      payload: {
+        ...detail.quote.payload,
+        items: detail.quote.payload.items.map((item) => ({
+          ...item,
+          productSnapshot: {
+            ...item.productSnapshot,
+            photo: resolveApiResourceUrl(item.productSnapshot.photo, apiBaseUrl),
+            ...(item.productSnapshot.assembly ? {
+              assembly: {
+                ...item.productSnapshot.assembly,
+                selectedImage: resolveApiResourceUrl(item.productSnapshot.assembly.selectedImage, apiBaseUrl),
+              },
+            } : {}),
+          },
+        })),
+      },
+    },
+    attachments: detail.attachments.map((attachment) => ({
+      ...attachment,
+      contentUrl: resolveApiResourceUrl(attachment.contentUrl, apiBaseUrl),
+    })),
+  };
 }
 
 export async function loadOrderOperation(quoteId: string): Promise<OrderOperationDetail> {
-  return normalizeDetail(await apiRequest<OrderOperationDetail>(`/admin/operations/orders/${quoteId}`));
+  return normalizeOrderOperationDetailImageUrls(await apiRequest<OrderOperationDetail>(`/admin/operations/orders/${quoteId}`));
 }
 export async function saveManualPayment(quoteId: string, input: {
   status: PaymentStatus; amountCents: number; method: PaymentMethod; receivedAt: string | null; note: string;
@@ -40,7 +63,7 @@ export async function applyOrderLifecycle(quoteId: string, input: {
   responsible?: string;
   occurredAt?: string;
 }): Promise<OrderOperationDetail> {
-  return normalizeDetail(await apiRequest<OrderOperationDetail>(`/admin/operations/orders/${quoteId}/lifecycle`, { method: "POST", body: JSON.stringify(input) }));
+  return normalizeOrderOperationDetailImageUrls(await apiRequest<OrderOperationDetail>(`/admin/operations/orders/${quoteId}/lifecycle`, { method: "POST", body: JSON.stringify(input) }));
 }
 export async function uploadOperationalAttachment(quoteId: string, input: {
   file: File; kind: AttachmentKind; unitId?: string; note?: string;
@@ -51,7 +74,7 @@ export async function uploadOperationalAttachment(quoteId: string, input: {
   if (input.unitId) body.append("unitId", input.unitId);
   if (input.note) body.append("note", input.note);
   const attachment = (await apiRequest<{ attachment: OperationalAttachment }>(`/admin/operations/orders/${quoteId}/attachments`, { method: "POST", body })).attachment;
-  return { ...attachment, contentUrl: resolveAttachmentUrl(attachment.contentUrl) };
+  return { ...attachment, contentUrl: resolveApiResourceUrl(attachment.contentUrl) };
 }
 export async function deleteOperationalAttachment(id: string): Promise<void> {
   await apiRequest<void>(`/admin/operations/attachments/${id}`, { method: "DELETE" });
