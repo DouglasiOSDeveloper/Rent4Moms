@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { apiRequest } from "../api/apiClient";
 import { mediaApi } from "./mediaApi";
 
-vi.mock("../api/apiClient", () => ({ apiRequest: vi.fn() }));
+vi.mock("../api/apiClient", async () => {
+  const actual = await vi.importActual<typeof import("../api/apiClient")>("../api/apiClient");
+  return { ...actual, apiRequest: vi.fn() };
+});
 
 const requestMock = vi.mocked(apiRequest);
 
@@ -11,7 +14,7 @@ describe("mediaApi Stage E", () => {
 
   it("uploads a variant image with the selected dynamic angle", async () => {
     const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "frontal.png", { type: "image/png" });
-    requestMock.mockResolvedValue({ asset: { id: "asset-1" } });
+    requestMock.mockResolvedValue({ asset: { id: "asset-1", contentUrl: "/api/v1/media/assets/asset-1/content" } });
 
     await mediaApi.upload({
       ownerType: "assembly_variant",
@@ -37,7 +40,7 @@ describe("mediaApi Stage E", () => {
   });
 
   it("updates visibility without replacing the file", async () => {
-    requestMock.mockResolvedValue({ asset: { id: "asset-1", isPublic: false } });
+    requestMock.mockResolvedValue({ asset: { id: "asset-1", isPublic: false, contentUrl: "/api/v1/media/assets/asset-1/content" } });
 
     await mediaApi.updateAsset("asset-1", { isPublic: false });
 

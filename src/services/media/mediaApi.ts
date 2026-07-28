@@ -1,5 +1,9 @@
 import type { MediaAngle, MediaAngleInput, MediaAsset, MediaOwnerType, MediaUploadInput } from "../../domain/media/types";
-import { apiRequest } from "../api/apiClient";
+import { apiRequest, resolveApiResourceUrl } from "../api/apiClient";
+
+function normalizeAsset(asset: MediaAsset): MediaAsset {
+  return { ...asset, contentUrl: resolveApiResourceUrl(asset.contentUrl) };
+}
 
 export const mediaApi = {
   async listAngles(): Promise<MediaAngle[]> {
@@ -16,7 +20,7 @@ export const mediaApi = {
   },
   async listAssets(ownerType: MediaOwnerType, ownerId: string): Promise<MediaAsset[]> {
     const query = new URLSearchParams({ ownerType, ownerId });
-    return (await apiRequest<{ assets: MediaAsset[] }>(`/admin/media/assets?${query}`)).assets;
+    return (await apiRequest<{ assets: MediaAsset[] }>(`/admin/media/assets?${query}`)).assets.map(normalizeAsset);
   },
   async upload(input: MediaUploadInput): Promise<MediaAsset> {
     const body = new FormData();
@@ -28,10 +32,10 @@ export const mediaApi = {
     body.set("isPrimary", String(input.isPrimary));
     body.set("sortOrder", String(input.sortOrder));
     body.set("file", input.file);
-    return (await apiRequest<{ asset: MediaAsset }>("/admin/media/assets", { method: "POST", body })).asset;
+    return normalizeAsset((await apiRequest<{ asset: MediaAsset }>("/admin/media/assets", { method: "POST", body })).asset);
   },
   async updateAsset(id: string, patch: Partial<Pick<MediaAsset, "alt" | "isPublic" | "isPrimary" | "sortOrder">>): Promise<MediaAsset> {
-    return (await apiRequest<{ asset: MediaAsset }>(`/admin/media/assets/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) })).asset;
+    return normalizeAsset((await apiRequest<{ asset: MediaAsset }>(`/admin/media/assets/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) })).asset);
   },
   async deleteAsset(id: string): Promise<void> {
     await apiRequest(`/admin/media/assets/${encodeURIComponent(id)}`, { method: "DELETE" });

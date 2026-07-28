@@ -1,6 +1,16 @@
 const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 export const API_BASE_URL = (configuredBaseUrl || "/api/v1").replace(/\/$/, "");
 
+export function resolveApiResourceUrl(value: string, apiBaseUrl = API_BASE_URL): string {
+  const normalized = value.trim();
+  if (!normalized) return "";
+  if (/^(https?:|data:|blob:)/i.test(normalized)) return normalized;
+  if (normalized.startsWith("/api/v1") && /^https?:\/\//i.test(apiBaseUrl)) {
+    return `${apiBaseUrl}${normalized.slice("/api/v1".length)}`;
+  }
+  return normalized.startsWith("/") ? normalized : "";
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,

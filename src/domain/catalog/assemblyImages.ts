@@ -1,8 +1,8 @@
+import { resolveApiResourceUrl } from "../../services/api/apiClient";
 import type { AssemblyAngle, AssemblyImage } from "./types";
 
 export function resolvePublicImageUrl(value: string): string {
-  const normalized = value.trim();
-  return /^(https?:|data:|blob:|\/)/.test(normalized) ? normalized : "";
+  return resolveApiResourceUrl(value);
 }
 
 export function resolveAssemblyImageUrl(image: AssemblyImage): string {
