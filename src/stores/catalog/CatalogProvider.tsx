@@ -22,6 +22,7 @@ import type {
   Reducer,
 } from "../../domain/catalog/types";
 import { getCategoriesWithCount } from "../../domain/catalog/selectors";
+import { normalizeCatalogSnapshotImageUrls } from "../../domain/catalog/assemblyImages";
 import { normalizeProductPeriodPricing } from "../../domain/pricing/pricingEngine";
 import { CatalogApiRepository } from "../../services/catalog/catalogApiRepository";
 
@@ -116,8 +117,9 @@ export function CatalogProvider({ children, canPersistRemote = false }: { childr
   const [syncStatus, setSyncStatus] = useState<CatalogContextValue["syncStatus"]>("loading");
 
   const applySnapshot = useCallback((next: CatalogSnapshot) => {
-    setSnapshot(next);
-    setSyncStatus(isCatalogEmpty(next) ? "empty" : "synced");
+    const normalized = normalizeCatalogSnapshotImageUrls(next);
+    setSnapshot(normalized);
+    setSyncStatus(isCatalogEmpty(normalized) ? "empty" : "synced");
   }, []);
 
   const refreshCatalog = useCallback(async () => {
