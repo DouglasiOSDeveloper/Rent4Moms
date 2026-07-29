@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Archive, CheckCircle, ExternalLink, Globe, ImageIcon, LoaderCircle, Plus, RefreshCw, Save, Send, Settings2, Trash2, Upload } from "lucide-react";
+import { Archive, CheckCircle, ChevronDown, ChevronUp, ExternalLink, Globe, HelpCircle, ImageIcon, LoaderCircle, Plus, RefreshCw, Save, Send, Settings2, Trash2, Upload } from "lucide-react";
 import { Btn, Input, Select, cn } from "../../../components/prototype/PrototypeUI";
 import { createEmptyIntegrationSettings, createEmptySiteSettings } from "../../../domain/content/emptyContent";
-import type { AdminContentSnapshot, IntegrationSettingsDocument, LegalPageAdmin, SiteSettingsDocument } from "../../../domain/content/types";
+import type { AdminContentSnapshot, FaqItem, IntegrationSettingsDocument, LegalPageAdmin, SiteSettingsDocument } from "../../../domain/content/types";
 import { legalPagePath } from "../../../domain/content/types";
 import {
   archiveAdminLegalPage,
@@ -19,6 +19,7 @@ import { resolveApiResourceUrl } from "../../../services/api/apiClient";
 
 const tabs = [
   ["institucional", "Institucional"],
+  ["faq", "Dúvidas frequentes"],
   ["legal", "Páginas legais"],
   ["integracoes", "Integrações"],
 ] as const;
@@ -59,6 +60,44 @@ export function AdminContent() {
     ? resolveApiResourceUrl(`/api/v1/media/assets/${siteDraft.institutionalImage.assetId}/content`)
     : "";
 
+  const sortedFaqs = useMemo(
+    () => [...siteDraft.faqs].sort((left, right) => left.sortOrder - right.sortOrder || left.question.localeCompare(right.question)),
+    [siteDraft.faqs],
+  );
+
+  const updateFaq = (id: string, patch: Partial<FaqItem>) => {
+    setSiteDraft((current) => ({
+      ...current,
+      faqs: current.faqs.map((item) => item.id === id ? { ...item, ...patch } : item),
+    }));
+  };
+
+  const addFaq = () => {
+    const id = globalThis.crypto?.randomUUID?.() ?? `faq-${Date.now()}`;
+    setSiteDraft((current) => ({
+      ...current,
+      faqs: [...current.faqs, { id, question: "", answer: "", isPublished: false, sortOrder: current.faqs.length }],
+    }));
+  };
+
+  const removeFaq = (id: string) => {
+    setSiteDraft((current) => ({
+      ...current,
+      faqs: current.faqs.filter((item) => item.id !== id).map((item, index) => ({ ...item, sortOrder: index })),
+    }));
+  };
+
+  const moveFaq = (id: string, direction: -1 | 1) => {
+    setSiteDraft((current) => {
+      const ordered = [...current.faqs].sort((left, right) => left.sortOrder - right.sortOrder);
+      const index = ordered.findIndex((item) => item.id === id);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= ordered.length) return current;
+      [ordered[index], ordered[target]] = [ordered[target]!, ordered[index]!];
+      return { ...current, faqs: ordered.map((item, sortOrder) => ({ ...item, sortOrder })) };
+    });
+  };
+
   const reload = async () => {
     setLoading(true);
     setError("");
@@ -66,7 +105,7 @@ export function AdminContent() {
       const data = await loadAdminContent();
       setSnapshot(data);
       const loadedSite = data.siteSettings
-        ? { ...structuredClone(data.siteSettings), institutionalImage: data.siteSettings.institutionalImage ?? null }
+        ? { ...structuredClone(data.siteSettings), faqs: data.siteSettings.faqs ?? [], institutionalImage: data.siteSettings.institutionalImage ?? null }
         : createEmptySiteSettings();
       setSiteDraft(loadedSite);
       setInstitutionalAlt(loadedSite.institutionalImage?.alt || "Equipe Rent4Moms");
@@ -119,6 +158,19 @@ export function AdminContent() {
     const saved = await saveAdminSiteSettings(siteDraft);
     await applySavedSite(saved);
   }, "Dados institucionais publicados no site.");
+
+  const saveFaqs = () => runAction(async () => {
+    const invalid = siteDraft.faqs.find((item) => item.question.trim().length < 3 || item.answer.trim().length < 3);
+    if (invalid) throw new Error("Preencha pergunta e resposta com pelo menos 3 caracteres em todas as dúvidas.");
+    const normalized = {
+      ...siteDraft,
+      faqs: [...siteDraft.faqs]
+        .sort((left, right) => left.sortOrder - right.sortOrder)
+        .map((item, sortOrder) => ({ ...item, question: item.question.trim(), answer: item.answer.trim(), sortOrder })),
+    };
+    const saved = await saveAdminSiteSettings(normalized);
+    await applySavedSite(saved);
+  }, "Dúvidas frequentes atualizadas no site.");
 
   const uploadInstitutionalImage = () => runAction(async () => {
     if (!institutionalFile) throw new Error("Escolha uma imagem JPG, PNG ou WebP.");
@@ -324,6 +376,38 @@ export function AdminContent() {
           </section>
           <Btn variant="primary" onClick={() => void saveSite()} disabled={saving}><Save size={15} />Salvar e refletir no site</Btn>
         </div>
+      )}
+
+      {tab === "faq" && (
+        <section className="rounded-xl border border-border bg-white p-6">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div><div className="flex items-center gap-2"><HelpCircle size={18} className="text-primary" /><h2 className="font-semibold text-foreground">Dúvidas frequentes</h2></div><p className="mt-1 text-sm text-muted-foreground">Cadastre perguntas e respostas, organize a ordem e escolha quais ficam visíveis na página inicial e na página de dúvidas.</p></div>
+            <Btn variant="outline" size="sm" onClick={addFaq}><Plus size={14} />Nova dúvida</Btn>
+          </div>
+          {sortedFaqs.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">Nenhuma dúvida cadastrada.</div>
+          ) : (
+            <div className="space-y-4">
+              {sortedFaqs.map((item, index) => (
+                <article key={item.id} className="rounded-xl border border-border bg-secondary/40 p-4">
+                  <div className="grid gap-4 md:grid-cols-[1fr_auto]">
+                    <div className="space-y-3">
+                      <Input label="Pergunta" value={item.question} onChange={(value) => updateFaq(item.id, { question: value })} required />
+                      <div><label className="text-sm font-medium text-foreground">Resposta</label><textarea rows={4} value={item.answer} onChange={(event) => updateFaq(item.id, { answer: event.target.value })} className="mt-1.5 w-full rounded-xl border border-border bg-white px-4 py-3 text-sm" /></div>
+                      <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={item.isPublished} onChange={(event) => updateFaq(item.id, { isPublished: event.target.checked })} className="accent-primary" />Exibir no site</label>
+                    </div>
+                    <div className="flex gap-1 md:flex-col">
+                      <button type="button" onClick={() => moveFaq(item.id, -1)} disabled={index === 0} aria-label="Mover dúvida para cima" className="rounded-lg p-2 text-muted-foreground hover:bg-white disabled:opacity-30"><ChevronUp size={16} /></button>
+                      <button type="button" onClick={() => moveFaq(item.id, 1)} disabled={index === sortedFaqs.length - 1} aria-label="Mover dúvida para baixo" className="rounded-lg p-2 text-muted-foreground hover:bg-white disabled:opacity-30"><ChevronDown size={16} /></button>
+                      <button type="button" onClick={() => removeFaq(item.id)} aria-label="Excluir dúvida" className="rounded-lg p-2 text-destructive hover:bg-destructive/10"><Trash2 size={16} /></button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+          <div className="mt-5 flex flex-wrap items-center gap-3"><Btn variant="primary" onClick={() => void saveFaqs()} disabled={saving}><Save size={14} />Salvar dúvidas</Btn><span className="text-xs text-muted-foreground">Somente itens marcados como “Exibir no site” serão publicados.</span></div>
+        </section>
       )}
 
       {tab === "legal" && (

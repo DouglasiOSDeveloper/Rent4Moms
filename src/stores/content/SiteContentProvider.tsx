@@ -21,7 +21,7 @@ export function SiteContentProvider({ children }: { children: React.ReactNode })
     setStatus("loading");
     try {
       const content = await loadPublicSiteContent();
-      setSiteSettings(content.siteSettings ?? createEmptySiteSettings());
+      setSiteSettings(content.siteSettings ? { ...content.siteSettings, faqs: content.siteSettings.faqs ?? [] } : createEmptySiteSettings());
       setLegalPages(content.legalPages);
       setStatus(content.siteSettings || content.legalPages.length > 0 ? "ready" : "empty");
     } catch {

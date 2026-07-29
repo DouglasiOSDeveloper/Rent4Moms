@@ -22,6 +22,7 @@ const EMPTY_PRODUCT: ProductInput = {
   periodPricing: structuredClone(DEFAULT_PRODUCT_PERIOD_PRICING),
   status: "available",
   description: "",
+  details: { audience: "", includedItems: "", usage: "", safety: "" },
   featured: false,
   conservation: "",
   tags: [],
@@ -46,6 +47,7 @@ function inputFromProduct(product: Product): ProductInput {
     periodPricing: product.periodPricing ?? structuredClone(DEFAULT_PRODUCT_PERIOD_PRICING),
     status: product.status,
     description: product.description,
+    details: product.details ?? { audience: "", includedItems: "", usage: "", safety: "" },
     featured: product.featured,
     conservation: product.conservation,
     tags: product.tags,
@@ -71,6 +73,7 @@ function ProductEditor({ product, onClose }: { product?: Product; onClose: () =>
 
   const update = <K extends keyof ProductInput>(key: K, value: ProductInput[K]) => setForm((current) => ({ ...current, [key]: value }));
   const updateSpec = <K extends keyof ProductInput["specs"]>(key: K, value: ProductInput["specs"][K]) => setForm((current) => ({ ...current, specs: { ...current.specs, [key]: value } }));
+  const updateDetail = <K extends keyof ProductInput["details"]>(key: K, value: ProductInput["details"][K]) => setForm((current) => ({ ...current, details: { ...current.details, [key]: value } }));
   const updatePeriodRule = (
     key: "days60" | "days90",
     patch: Partial<ProductInput["periodPricing"]["days60"]>,
@@ -95,6 +98,12 @@ function ProductEditor({ product, onClose }: { product?: Product; onClose: () =>
       brand: form.brand.trim(),
       model: form.model.trim(),
       description: form.description.trim(),
+      details: {
+        audience: form.details.audience.trim(),
+        includedItems: form.details.includedItems.trim(),
+        usage: form.details.usage.trim(),
+        safety: form.details.safety.trim(),
+      },
       conservation: form.conservation.trim(),
       tags: tags.split(",").map((item) => item.trim()).filter(Boolean),
       specs: { ...form.specs, includes: includes.split(",").map((item) => item.trim()).filter(Boolean) },
@@ -143,6 +152,15 @@ function ProductEditor({ product, onClose }: { product?: Product; onClose: () =>
           <label className="text-sm font-medium">Disponibilidade<select value={form.status} onChange={(event) => update("status", event.target.value as ProductInput["status"])} className="mt-1 w-full rounded-xl border border-border bg-input-background px-3 py-2"><option value="available">Disponível</option><option value="few_units">Poucas unidades</option><option value="on_demand">Sob consulta</option><option value="unavailable">Indisponível</option></select></label>
           <label className="text-sm font-medium">Publicação<select value={form.publicationStatus} onChange={(event) => update("publicationStatus", event.target.value as ProductInput["publicationStatus"])} className="mt-1 w-full rounded-xl border border-border bg-input-background px-3 py-2"><option value="draft">Rascunho</option><option value="published">Publicado</option></select></label>
           <label className="text-sm font-medium lg:col-span-3">Descrição<textarea rows={4} value={form.description} onChange={(event) => update("description", event.target.value)} className="mt-1 w-full rounded-xl border border-border bg-input-background px-3 py-2" /></label>
+          <div className="lg:col-span-3 rounded-2xl border border-border bg-secondary/40 p-4">
+            <div className="mb-3"><p className="font-medium text-foreground">Conteúdo detalhado da página do produto</p><p className="mt-1 text-xs text-muted-foreground">Estes textos aparecem nos quatro cards da aba Descrição. Campos vazios serão exibidos como “Informação não cadastrada”.</p></div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <label className="text-sm font-medium">Para quem é indicado<textarea rows={4} value={form.details.audience} onChange={(event) => updateDetail("audience", event.target.value)} className="mt-1 w-full rounded-xl border border-border bg-white px-3 py-2" /></label>
+              <label className="text-sm font-medium">Itens inclusos<textarea rows={4} value={form.details.includedItems} onChange={(event) => updateDetail("includedItems", event.target.value)} className="mt-1 w-full rounded-xl border border-border bg-white px-3 py-2" /></label>
+              <label className="text-sm font-medium">Como utilizar<textarea rows={4} value={form.details.usage} onChange={(event) => updateDetail("usage", event.target.value)} className="mt-1 w-full rounded-xl border border-border bg-white px-3 py-2" /></label>
+              <label className="text-sm font-medium">Cuidados e segurança<textarea rows={4} value={form.details.safety} onChange={(event) => updateDetail("safety", event.target.value)} className="mt-1 w-full rounded-xl border border-border bg-white px-3 py-2" /></label>
+            </div>
+          </div>
           <label className="text-sm font-medium">Conservação<input value={form.conservation} onChange={(event) => update("conservation", event.target.value)} className="mt-1 w-full rounded-xl border border-border bg-input-background px-3 py-2" /></label>
           <label className="text-sm font-medium lg:col-span-2">Tags, separadas por vírgula<input value={tags} onChange={(event) => setTags(event.target.value)} className="mt-1 w-full rounded-xl border border-border bg-input-background px-3 py-2" /></label>
           <label className="text-sm font-medium">Itens inclusos, separados por vírgula<input value={includes} onChange={(event) => setIncludes(event.target.value)} className="mt-1 w-full rounded-xl border border-border bg-input-background px-3 py-2" /></label>

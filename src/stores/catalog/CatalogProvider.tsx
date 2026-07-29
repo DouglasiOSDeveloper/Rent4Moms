@@ -92,6 +92,7 @@ function productToInput(product: Product, patch: Partial<Product> = {}): Product
     periodPricing: normalizeProductPeriodPricing(next.periodPricing),
     status: next.status,
     description: next.description,
+    details: next.details ?? { audience: "", includedItems: "", usage: "", safety: "" },
     featured: next.featured,
     conservation: next.conservation,
     tags: next.tags,

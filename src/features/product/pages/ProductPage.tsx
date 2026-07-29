@@ -208,6 +208,12 @@ function ProductPageContent({
     selectedCover?.description,
     selectedReducer?.description,
   );
+  const productDetailSections = [
+    { title: "Para quem é indicado", content: product.details?.audience ?? "" },
+    { title: "Itens inclusos", content: product.details?.includedItems || product.specs.includes.join(", ") },
+    { title: "Como utilizar", content: product.details?.usage ?? "" },
+    { title: "Cuidados e segurança", content: product.details?.safety ?? "" },
+  ];
 
   const availableQuantity = chairModel && selectedCover && ballSet
     ? getConfigurationAvailableQuantity({ chairModel, cover: selectedCover, reducer: selectedReducer, ballSet })
@@ -290,7 +296,7 @@ function ProductPageContent({
         id: image.id,
         url: resolveAssemblyImageUrl(image),
         alt: image.alt || product.name,
-        label: `${image.angle} · ${getAngleLabel(image.angle, image.angleLabel)}`,
+        label: getAngleLabel(image.angle, image.angleLabel),
         angle: image.angle,
         source: "variant" as const,
       }));
@@ -303,7 +309,7 @@ function ProductPageContent({
         url: image.url,
         alt: image.alt || product.name,
         label: image.angle
-          ? `${image.angle} · ${getAngleLabel(image.angle, image.angleLabel)}`
+          ? getAngleLabel(image.angle, image.angleLabel)
           : image.alt || image.originalName || `Imagem ${index + 1}`,
         angle: image.angle,
         source,
@@ -517,14 +523,13 @@ function ProductPageContent({
 
       <div className="grid lg:grid-cols-2 gap-12 mb-16">
         <div>
-          <div className="relative rounded-2xl overflow-hidden bg-secondary mb-4 border border-border min-h-96">
-            {activeImageUrl ? <img src={activeImageUrl} alt={activeImageAlt} className="w-full h-96 object-cover" /> : <div className="h-96 flex items-center justify-center p-6"><EmptyState compact title="Imagem não cadastrada" description="A imagem real deste produto ou variante ainda não foi enviada." /></div>}
+          <div className="relative rounded-2xl overflow-hidden bg-white mb-4 border border-border min-h-[420px]">
+            {activeImageUrl ? <img src={activeImageUrl} alt={activeImageAlt} className="h-[420px] w-full object-contain p-2" /> : <div className="h-[420px] flex items-center justify-center p-6"><EmptyState compact title="Imagem não cadastrada" description="A imagem real deste produto ou variante ainda não foi enviada." /></div>}
             <div className="absolute top-4 left-4 flex flex-col gap-2">
               <span className="bg-accent text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1"><Droplets size={10} />Higienizado</span>
               <span className="bg-primary text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1"><Shield size={10} />Revisado</span>
             </div>
             <div className="absolute top-4 right-4"><AvailabilityBadge status={availableQuantity === 0 ? "unavailable" : product.status} /></div>
-            {variant && <span className="absolute bottom-4 left-4 bg-white/90 border border-border text-xs px-2 py-1 rounded-lg text-foreground">{variant.id} · {variant.prefix}</span>}
           </div>
           {displayGallery.length > 1 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -541,7 +546,7 @@ function ProductPageContent({
                     activeGalleryImage?.id === image.id ? "border-primary" : "border-border hover:border-primary/50",
                   )}
                 >
-                  <img src={image.url} alt={image.alt} className="w-full h-24 object-cover" />
+                  <img src={image.url} alt={image.alt} className="h-28 w-full bg-white object-contain p-1" />
                   <span className="block px-2 py-1.5 text-xs text-center text-foreground truncate">{image.label}</span>
                 </button>
               ))}
@@ -690,7 +695,7 @@ function ProductPageContent({
           {tabs.map((tab) => <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors", activeTab === tab.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{tab.label}</button>)}
         </div>
 
-        {activeTab === "descricao" && <div className="prose max-w-none text-foreground leading-relaxed"><p>{composedDescription}</p><div className="mt-6 grid sm:grid-cols-2 gap-4">{["Para quem é indicado", "Itens inclusos", "Como utilizar", "Cuidados e segurança"].map((section) => <div key={section} className="bg-secondary rounded-xl p-4 border border-border"><p className="font-semibold text-foreground mb-2">{section}</p><p className="text-sm text-muted-foreground">Informação detalhada disponível após confirmação do orçamento.</p></div>)}</div></div>}
+        {activeTab === "descricao" && <div className="prose max-w-none text-foreground leading-relaxed"><p>{composedDescription}</p><div className="mt-6 grid sm:grid-cols-2 gap-4">{productDetailSections.map((section) => <div key={section.title} className="bg-secondary rounded-xl p-4 border border-border"><p className="font-semibold text-foreground mb-2">{section.title}</p><p className="text-sm text-muted-foreground whitespace-pre-line">{section.content || "Informação não cadastrada."}</p></div>)}</div></div>}
         {activeTab === "especificacoes" && <div className="grid sm:grid-cols-2 gap-4">{[["Categorias", categoryNames.join(", ") || "Sem categoria"], ["Marca", product.brand], ["Modelo", product.model], ["Faixa etária", `${product.ageMin} – ${product.ageMax}`], ["Peso máximo", product.weightMax], ["Dimensões", product.specs.dimensions], ["Peso do produto", product.specs.productWeight], ["Material", product.specs.material], ["Cor", selectedCover?.name ?? product.specs.color], ["Alimentação", product.specs.electric], ["Pano", selectedCover?.name ?? "Selecione na montagem"], ["Redutor", selectedReducer?.name ?? "Sem redutor"]].map(([key, value]) => <div key={key} className="flex justify-between py-2 px-4 bg-secondary rounded-xl border border-border text-sm"><span className="text-muted-foreground">{key}</span><span className="font-medium text-foreground text-right">{value}</span></div>)}<div className="sm:col-span-2 bg-secondary rounded-xl border border-border p-4"><p className="text-sm text-muted-foreground mb-2 font-medium">Itens inclusos:</p><div className="flex flex-wrap gap-2">{product.specs.includes.map((item) => <span key={item} className="text-xs bg-card border border-border px-2 py-1 rounded-lg text-foreground">{item}</span>)}</div></div></div>}
         {activeTab === "higienizacao" && <div className="max-w-2xl"><p className="text-muted-foreground leading-relaxed mb-4">Todos os nossos equipamentos passam por um processo cuidadoso de higienização entre cada locação. Você receberá o produto limpo, higienizado e pronto para uso.</p><div className="flex flex-col gap-3">{["Inspeção ao receber a devolução", "Desmontagem quando aplicável", "Limpeza adequada ao material", "Higienização de tecidos e superfícies", "Secagem completa", "Revisão de componentes", "Embalagem e preparação"].map((step, index) => <div key={step} className="flex items-center gap-3 p-3 bg-secondary rounded-xl border border-border"><div className="w-6 h-6 bg-accent rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">{index + 1}</div><span className="text-sm text-foreground">{step}</span></div>)}</div></div>}
         {activeTab === "entrega" && <div className="max-w-2xl text-muted-foreground leading-relaxed"><p>A entrega é realizada dentro da nossa área de atendimento, em horários previamente combinados. A taxa de entrega e retirada é calculada conforme a região e informada no orçamento antes da confirmação.</p><p className="mt-4">A devolução deve ser realizada na data acordada no contrato. Em caso de atraso, uma taxa adicional poderá ser aplicada conforme descrito nas condições gerais de locação.</p></div>}

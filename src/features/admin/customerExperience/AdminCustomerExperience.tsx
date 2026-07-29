@@ -7,7 +7,8 @@ import type {
 } from "../../../domain/customerExperience/types";
 import { formatMoneyFromCents } from "../../../lib/money";
 import {
-  decideRenewal, loadCustomerExperienceAdminQueue, moderateReview, updateSupportRequest,
+  decideRenewal, loadCustomerExperienceAdminQueue, moderateReview,
+  setReviewFeatured, updateSupportRequest,
 } from "../../../services/customerExperience/customerExperienceApi";
 import { listAdminQuotes } from "../../../services/quotes/quotesApi";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
@@ -68,6 +69,14 @@ export function AdminCustomerExperience() {
     finally { setSaving(""); }
   };
 
+  const reviewFeaturedDecision = async (id: string, isFeatured: boolean) => {
+    setSaving(id);
+    setError("");
+    try { await setReviewFeatured(id, isFeatured); await reload(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível atualizar o destaque da avaliação."); }
+    finally { setSaving(""); }
+  };
+
   const supportDecision = async (item: SupportRequest, status: SupportStatus, requireResponse = false) => {
     const adminNote = (supportDrafts[item.id] ?? item.adminNote).trim();
     if (requireResponse && adminNote.length < 2) {
@@ -120,7 +129,7 @@ export function AdminCustomerExperience() {
         </article>;
       })}{!queue.supportRequests.length && <Empty text="Nenhuma solicitação de atendimento." />}</div>}
       {tab === "renewals" && <div className="space-y-3">{queue.renewals.map((item) => <article key={item.id} className="rounded-xl border border-border bg-white p-4"><div className="flex flex-wrap justify-between gap-3"><div><p className="font-medium">Pedido {quoteCodes[item.quoteId] ?? item.quoteId.slice(0, 8)} · nova devolução {date(item.requestedEndDate)}</p><p className="text-sm text-muted-foreground">{item.extensionDays} dias · {formatMoneyFromCents(item.amountCents)} · sem desconto</p>{item.customerNote && <p className="mt-2 text-sm">“{item.customerNote}”</p>}</div><StatusBadge status={renewalLabels[item.status]} /></div>{item.status === "pending" && <div className="mt-4 flex justify-end gap-2"><Btn variant="outline" size="sm" disabled={saving === item.id} onClick={() => void renewalDecision(item.id, "rejected")}><X size={14} />Recusar</Btn><Btn variant="primary" size="sm" disabled={saving === item.id} onClick={() => void renewalDecision(item.id, "approved")}><Check size={14} />Aprovar</Btn></div>}</article>)}{!queue.renewals.length && <Empty text="Nenhuma renovação solicitada." />}</div>}
-      {tab === "reviews" && <div className="space-y-3">{queue.reviews.map((item) => <article key={item.id} className="rounded-xl border border-border bg-white p-4"><div className="flex flex-wrap justify-between gap-3"><div><p className="font-medium">{item.productName} · {item.customerDisplayName}</p><div className="my-2 flex gap-0.5 text-amber-400">{[1,2,3,4,5].map((value) => <Star key={value} size={14} fill={value <= item.rating ? "currentColor" : "none"} />)}</div><p className="text-sm text-muted-foreground">“{item.comment}”</p><p className="mt-2 text-xs text-muted-foreground">{dateTime(item.createdAt)}</p></div><StatusBadge status={reviewLabels[item.status]} /></div><div className="mt-4 flex justify-end gap-2"><Btn variant="outline" size="sm" disabled={saving === item.id} onClick={() => void reviewDecision(item.id, "hidden")}>Ocultar</Btn><Btn variant="outline" size="sm" disabled={saving === item.id} onClick={() => void reviewDecision(item.id, "rejected")}>Recusar</Btn><Btn variant="primary" size="sm" disabled={saving === item.id} onClick={() => void reviewDecision(item.id, "published")}>Publicar</Btn></div></article>)}{!queue.reviews.length && <Empty text="Nenhuma avaliação recebida." />}</div>}
+      {tab === "reviews" && <div className="space-y-3">{queue.reviews.map((item) => <article key={item.id} className="rounded-xl border border-border bg-white p-4"><div className="flex flex-wrap justify-between gap-3"><div><p className="font-medium">{item.productName} · {item.customerDisplayName}</p><div className="my-2 flex gap-0.5 text-amber-400">{[1,2,3,4,5].map((value) => <Star key={value} size={14} fill={value <= item.rating ? "currentColor" : "none"} />)}</div><p className="text-sm text-muted-foreground">“{item.comment}”</p><p className="mt-2 text-xs text-muted-foreground">{dateTime(item.createdAt)}</p></div><StatusBadge status={reviewLabels[item.status]} /></div><div className="mt-4 flex flex-wrap items-center justify-between gap-2"><label className={`flex items-center gap-2 text-sm ${item.status === "published" ? "text-foreground" : "text-muted-foreground"}`}><input type="checkbox" checked={item.isFeatured} disabled={item.status !== "published" || saving === item.id} onChange={(event) => void reviewFeaturedDecision(item.id, event.target.checked)} className="accent-primary" />Exibir na página inicial</label><div className="flex flex-wrap justify-end gap-2"><Btn variant="outline" size="sm" disabled={saving === item.id} onClick={() => void reviewDecision(item.id, "hidden")}>Ocultar</Btn><Btn variant="outline" size="sm" disabled={saving === item.id} onClick={() => void reviewDecision(item.id, "rejected")}>Recusar</Btn><Btn variant="primary" size="sm" disabled={saving === item.id} onClick={() => void reviewDecision(item.id, "published")}>Publicar</Btn></div></div></article>)}{!queue.reviews.length && <Empty text="Nenhuma avaliação recebida." />}</div>}
     </>}
   </div>;
 }

@@ -21,6 +21,13 @@ export interface CatalogMediaImage {
   angleLabel?: string;
 }
 
+export interface ProductDetails {
+  audience: string;
+  includedItems: string;
+  usage: string;
+  safety: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -36,6 +43,7 @@ export interface Product {
   periodPricing?: ProductPeriodPricing;
   status: "available" | "few_units" | "on_demand" | "unavailable";
   description: string;
+  details?: ProductDetails;
   rating: number;
   reviews: number;
   photo: string;
@@ -204,6 +212,7 @@ export interface ProductInput {
   periodPricing: ProductPeriodPricing;
   status: Product["status"];
   description: string;
+  details: ProductDetails;
   featured: boolean;
   conservation: string;
   tags: string[];

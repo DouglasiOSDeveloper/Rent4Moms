@@ -1,5 +1,5 @@
-import React from "react";
-import { Search, Calendar, MessageCircle, Package, Eye, DollarSign, ArrowRight, Shield, Leaf, Award, Info, Home, Droplets, Zap } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Search, Calendar, MessageCircle, Package, Eye, DollarSign, ArrowRight, Shield, Leaf, Award, Info, Home, Droplets, Zap, Star } from "lucide-react";
 import type { Page } from "../../../domain/shared/types";
 import { getCategoryNames } from "../../../domain/catalog/selectors";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
@@ -9,6 +9,8 @@ import { useSiteContent } from "../../../stores/content/SiteContentProvider";
 import { EmptyState, ErrorState, LoadingState } from "../../../components/states/DataState";
 import { buildWhatsAppUrl } from "../../../lib/contact";
 import { resolveApiResourceUrl } from "../../../services/api/apiClient";
+import type { ProductReview } from "../../../domain/customerExperience/types";
+import { listFeaturedReviews } from "../../../services/customerExperience/customerExperienceApi";
 
 export function HomePage({ navigate }: {
   navigate: (p: Page, params?: Record<string, string>) => void;
@@ -20,6 +22,18 @@ export function HomePage({ navigate }: {
     ? resolveApiResourceUrl(`/api/v1/media/assets/${siteSettings.institutionalImage.assetId}/content`)
     : "";
   const featured = products.filter(p => p.featured);
+  const publishedFaqs = [...siteSettings.faqs].filter((item) => item.isPublished).sort((left, right) => left.sortOrder - right.sortOrder).slice(0, 4);
+  const [featuredReviews, setFeaturedReviews] = useState<ProductReview[]>([]);
+  const [featuredReviewsLoading, setFeaturedReviewsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    listFeaturedReviews()
+      .then((reviews) => { if (active) setFeaturedReviews(reviews); })
+      .catch(() => { if (active) setFeaturedReviews([]); })
+      .finally(() => { if (active) setFeaturedReviewsLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   return (
     <div className="flex flex-col">
@@ -238,7 +252,7 @@ export function HomePage({ navigate }: {
         <div className="text-center mb-10">
           <h2 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-3xl text-foreground mb-2">O que dizem as famílias</h2>
         </div>
-        <EmptyState title="Nenhuma avaliação publicada" description="Avaliações reais e moderadas aparecerão aqui depois da conclusão das locações." />
+        {featuredReviewsLoading ? <LoadingState title="Carregando avaliações..." compact /> : featuredReviews.length ? <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{featuredReviews.map((review) => <article key={review.id} className="rounded-2xl border border-border bg-card p-6"><div className="mb-3 flex gap-0.5 text-amber-400">{[1, 2, 3, 4, 5].map((value) => <Star key={value} size={15} fill={value <= review.rating ? "currentColor" : "none"} />)}</div><p className="text-sm leading-relaxed text-muted-foreground">“{review.comment}”</p><div className="mt-4 border-t border-border pt-3"><p className="text-sm font-medium text-foreground">{review.customerDisplayName}</p><p className="text-xs text-muted-foreground">{review.productName}</p></div></article>)}</div> : <EmptyState title="Nenhuma avaliação publicada" description="Avaliações reais selecionadas no painel administrativo aparecerão aqui." />}
       </section>
 
       {/* FAQ */}
@@ -247,7 +261,7 @@ export function HomePage({ navigate }: {
           <div className="text-center mb-10">
             <h2 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-3xl text-foreground mb-2">Dúvidas frequentes</h2>
           </div>
-          <EmptyState title="Nenhuma dúvida publicada" description="As perguntas frequentes serão exibidas quando forem cadastradas no conteúdo do site." compact />
+          {publishedFaqs.length ? <div className="space-y-3">{publishedFaqs.map((item) => <details key={item.id} className="group rounded-2xl border border-border bg-card p-5 text-left"><summary className="cursor-pointer list-none font-medium text-foreground">{item.question}</summary><p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{item.answer}</p></details>)}</div> : <EmptyState title="Nenhuma dúvida publicada" description="As perguntas frequentes serão exibidas quando forem cadastradas no conteúdo do site." compact />}
           <div className="text-center mt-6">
             <Btn variant="outline" onClick={() => navigate("faq")}>Ver todas as dúvidas <ArrowRight size={16} /></Btn>
           </div>

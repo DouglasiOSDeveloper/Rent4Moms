@@ -46,6 +46,11 @@ export async function submitProductReview(quoteId: string, input: { quoteItemInd
 export async function createSupportRequest(quoteId: string, input: { subject: string; message: string }): Promise<SupportRequest> {
   return (await apiRequest<{ supportRequest: SupportRequest }>(`/account/orders/${quoteId}/support`, { method: "POST", body: JSON.stringify(input) })).supportRequest;
 }
+export async function listFeaturedReviews(): Promise<ProductReview[]> {
+  const response = await apiRequest<{ reviews?: ProductReview[] }>("/reviews/featured");
+  return Array.isArray(response.reviews) ? response.reviews : [];
+}
+
 export async function listPublishedProductReviews(productId: string): Promise<ProductReviewsResponse> {
   const response = await apiRequest<Partial<ProductReviewsResponse>>(`/products/${productId}/reviews`);
   const summary = response.summary;
@@ -68,6 +73,9 @@ export async function decideRenewal(id: string, status: "approved" | "rejected" 
 }
 export async function moderateReview(id: string, status: ReviewStatus): Promise<ProductReview> {
   return (await apiRequest<{ review: ProductReview }>(`/admin/customer-experience/reviews/${id}`, { method: "PATCH", body: JSON.stringify({ status }) })).review;
+}
+export async function setReviewFeatured(id: string, isFeatured: boolean): Promise<ProductReview> {
+  return (await apiRequest<{ review: ProductReview }>(`/admin/customer-experience/reviews/${id}/featured`, { method: "PATCH", body: JSON.stringify({ isFeatured }) })).review;
 }
 export async function updateSupportRequest(id: string, status: SupportStatus, adminNote = ""): Promise<SupportRequest> {
   return (await apiRequest<{ supportRequest: SupportRequest }>(`/admin/customer-experience/support/${id}`, { method: "PATCH", body: JSON.stringify({ status, adminNote }) })).supportRequest;

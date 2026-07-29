@@ -15,6 +15,14 @@ export interface InstitutionalImageReference {
   alt: string;
 }
 
+export interface FaqItem {
+  id: string;
+  question: string;
+  answer: string;
+  isPublished: boolean;
+  sortOrder: number;
+}
+
 export interface SiteSettingsDocument {
   brand: {
     name: string;
@@ -36,6 +44,7 @@ export interface SiteSettingsDocument {
     youtube: string;
   };
   businessHours: BusinessHoursEntry[];
+  faqs: FaqItem[];
   footer: {
     copyrightText: string;
     legalDisclaimer: string;

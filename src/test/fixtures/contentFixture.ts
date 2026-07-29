@@ -20,6 +20,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsDocument = {
     tiktok: "",
     youtube: "",
   },
+  faqs: [],
   businessHours: [
     { id: "weekdays", label: "Segunda a sexta", days: ["MO", "TU", "WE", "TH", "FR"], startTime: "09:00", endTime: "18:00", closed: false },
     { id: "saturday", label: "Sábado", days: ["SA"], startTime: "09:00", endTime: "13:00", closed: false },

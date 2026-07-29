@@ -10,7 +10,7 @@ export interface RenewalRequest {
 export type ReviewStatus = "published" | "hidden" | "rejected";
 export interface ProductReview {
   id: string; quoteId: string; quoteItemIndex: number; customerId: string; productId: string; productName: string;
-  customerDisplayName: string; rating: number; comment: string; status: ReviewStatus; moderatedBy: string | null; moderatedAt: string | null; createdAt: string; updatedAt: string;
+  customerDisplayName: string; rating: number; comment: string; status: ReviewStatus; isFeatured: boolean; moderatedBy: string | null; moderatedAt: string | null; createdAt: string; updatedAt: string;
 }
 export type SupportStatus = "open" | "in_progress" | "closed";
 export interface SupportRequest {

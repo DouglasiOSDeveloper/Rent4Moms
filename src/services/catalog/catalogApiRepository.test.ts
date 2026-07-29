@@ -26,6 +26,7 @@ describe("CatalogApiRepository Stage C CRUD", () => {
       periodPricing: DEFAULT_PRODUCT_PERIOD_PRICING,
       status: "available" as const,
       description: "",
+      details: { audience: "", includedItems: "", usage: "", safety: "" },
       featured: false,
       conservation: "Bom",
       tags: [],

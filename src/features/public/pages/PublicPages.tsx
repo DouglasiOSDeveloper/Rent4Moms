@@ -112,11 +112,12 @@ export function AboutPage({ navigate }: { navigate: (page: Page) => void }) {
 export function FAQPage({ navigate }: { navigate: (page: Page) => void }) {
   const { siteSettings } = useSiteContent();
   const whatsappUrl = buildWhatsAppUrl(siteSettings.contact.whatsapp, siteSettings.whatsapp.defaultMessage);
+  const publishedFaqs = [...siteSettings.faqs].filter((item) => item.isPublished).sort((left, right) => left.sortOrder - right.sortOrder);
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <h1 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-4xl text-foreground mb-4">Dúvidas frequentes</h1>
       <p className="text-muted-foreground mb-10">Encontre aqui as respostas para as perguntas mais comuns. Se não encontrar o que precisa, fale com nossa equipe.</p>
-      <EmptyState title="Nenhuma dúvida publicada" description="As perguntas frequentes serão exibidas depois do cadastro no módulo de conteúdo." />
+      {publishedFaqs.length ? <div className="space-y-3">{publishedFaqs.map((item) => <details key={item.id} className="group rounded-2xl border border-border bg-card p-5"><summary className="cursor-pointer list-none font-medium text-foreground">{item.question}</summary><p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{item.answer}</p></details>)}</div> : <EmptyState title="Nenhuma dúvida publicada" description="As perguntas frequentes serão exibidas depois do cadastro no módulo de conteúdo." />}
       <div className="mt-10 text-center p-8 bg-secondary rounded-2xl border border-border">
         <p className="font-medium text-foreground mb-2">Ainda tem dúvidas?</p>
         <p className="text-sm text-muted-foreground mb-4">Nossa equipe está aqui para ajudar você a encontrar a melhor opção.</p>

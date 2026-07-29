@@ -13,6 +13,7 @@ export function createEmptySiteSettings(): SiteSettingsDocument {
     },
     socialLinks: { instagram: "", facebook: "", tiktok: "", youtube: "" },
     businessHours: [],
+    faqs: [],
     footer: {
       copyrightText: "",
       legalDisclaimer: "",
