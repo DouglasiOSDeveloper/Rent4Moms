@@ -17,6 +17,7 @@ import { AddressFields } from "../../../components/forms/AddressFields";
 import { DeliverySlotSelect } from "../../../components/forms/DeliverySlotSelect";
 import { EmptyState, ErrorState, LoadingState } from "../../../components/states/DataState";
 import { RatingStars } from "../../../components/reviews/RatingStars";
+import { externalTestimonialAttribution } from "../../../components/reviews/reviewAttribution";
 import { ProductCard } from "../../../components/prototype/ProductCard";
 import { AvailabilityBadge, Btn, Input, cn } from "../../../components/prototype/PrototypeUI";
 import { getAngleLabel, resolveAssemblyImageUrl } from "../../../domain/catalog/assemblyImages";
@@ -73,7 +74,29 @@ interface DisplayGalleryImage {
 }
 
 function ProductReviewsPanel({ rating, reviewCount, reviews, loading }: { rating: number; reviewCount: number; reviews: PublicProductReview[]; loading: boolean }) {
-  return <div className="max-w-2xl"><div className="flex items-center gap-6 mb-8 p-6 bg-secondary rounded-2xl border border-border"><div className="text-center"><p className="text-5xl font-bold text-foreground">{rating || "—"}</p><div className="mt-1 flex justify-center"><RatingStars rating={rating} size={14} /></div><p className="text-xs text-muted-foreground mt-1">{reviewCount} avaliações</p></div></div>{loading ? <p className="text-sm text-muted-foreground">Carregando avaliações...</p> : reviews.length ? <div className="flex flex-col gap-4">{reviews.map((review) => <div key={review.id} className="bg-card rounded-xl border border-border p-4"><RatingStars rating={review.rating} size={12} className="mb-2" /><p className="text-sm text-muted-foreground mb-2">“{review.comment}”</p><p className="text-xs font-medium text-foreground">{review.customerDisplayName} · {new Date(review.reviewedAt ?? review.createdAt).toLocaleDateString("pt-BR")}</p><p className="mt-1 text-[11px] text-muted-foreground">{review.source === "external_testimonial" ? "Depoimento externo informado pela equipe" : "Avaliação de cliente vinculada a uma locação"}</p></div>)}</div> : <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Ainda não há avaliações publicadas para este produto.</div>}</div>;
+  return (
+    <div className="grid w-full items-stretch gap-4 md:grid-cols-2">
+      <div className="flex min-h-40 items-center rounded-2xl border border-border bg-secondary p-6">
+        <div className="text-center">
+          <p className="text-5xl font-bold text-foreground">{rating || "—"}</p>
+          <div className="mt-1 flex justify-center"><RatingStars rating={rating} size={14} /></div>
+          <p className="mt-1 text-xs text-muted-foreground">{reviewCount} avaliações</p>
+        </div>
+      </div>
+      {loading ? (
+        <div className="flex min-h-40 items-center justify-center rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">Carregando avaliações...</div>
+      ) : reviews.length ? reviews.map((review) => (
+        <article key={review.id} className="min-h-40 rounded-xl border border-border bg-card p-4">
+          <RatingStars rating={review.rating} size={12} className="mb-2" />
+          <p className="mb-2 text-sm text-muted-foreground">“{review.comment}”</p>
+          <p className="text-xs font-medium text-foreground">{review.customerDisplayName} · {new Date(review.reviewedAt ?? review.createdAt).toLocaleDateString("pt-BR")}</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">{review.source === "external_testimonial" ? externalTestimonialAttribution(review) : "Avaliação de cliente vinculada a uma locação"}</p>
+        </article>
+      )) : (
+        <div className="flex min-h-40 items-center justify-center rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Ainda não há avaliações publicadas para este produto.</div>
+      )}
+    </div>
+  );
 }
 
 interface ProductPageProps {

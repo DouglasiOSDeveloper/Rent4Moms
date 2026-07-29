@@ -11,6 +11,7 @@ import { buildWhatsAppUrl } from "../../../lib/contact";
 import { resolveApiResourceUrl } from "../../../services/api/apiClient";
 import type { PublicProductReview } from "../../../domain/customerExperience/types";
 import { RatingStars } from "../../../components/reviews/RatingStars";
+import { externalTestimonialAttribution } from "../../../components/reviews/reviewAttribution";
 import { listFeaturedReviews } from "../../../services/customerExperience/customerExperienceApi";
 
 export function HomePage({ navigate }: {
@@ -253,7 +254,7 @@ export function HomePage({ navigate }: {
         <div className="text-center mb-10">
           <h2 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-3xl text-foreground mb-2">O que dizem as famílias</h2>
         </div>
-        {featuredReviewsLoading ? <LoadingState title="Carregando avaliações..." compact /> : featuredReviews.length ? <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{featuredReviews.map((review) => <article key={review.id} className="rounded-2xl border border-border bg-card p-6"><RatingStars rating={review.rating} size={15} className="mb-3" /><p className="text-sm leading-relaxed text-muted-foreground">“{review.comment}”</p><div className="mt-4 border-t border-border pt-3"><p className="text-sm font-medium text-foreground">{review.customerDisplayName}</p><p className="text-xs text-muted-foreground">{review.productName}</p><p className="mt-1 text-[11px] text-muted-foreground">{review.source === "external_testimonial" ? "Depoimento externo" : "Cliente verificado"}</p></div></article>)}</div> : <EmptyState title="Nenhuma avaliação publicada" description="Avaliações reais selecionadas no painel administrativo aparecerão aqui." />}
+        {featuredReviewsLoading ? <LoadingState title="Carregando avaliações..." compact /> : featuredReviews.length ? <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{featuredReviews.map((review) => <article key={review.id} className="rounded-2xl border border-border bg-card p-6"><RatingStars rating={review.rating} size={15} className="mb-3" /><p className="text-sm leading-relaxed text-muted-foreground">“{review.comment}”</p><div className="mt-4 border-t border-border pt-3"><p className="text-sm font-medium text-foreground">{review.customerDisplayName}</p><p className="text-xs text-muted-foreground">{review.productName}</p><p className="mt-1 text-[11px] text-muted-foreground">{review.source === "external_testimonial" ? externalTestimonialAttribution(review) : "Cliente verificado"}</p></div></article>)}</div> : <EmptyState title="Nenhuma avaliação publicada" description="Avaliações reais selecionadas no painel administrativo aparecerão aqui." />}
       </section>
 
       {/* FAQ */}

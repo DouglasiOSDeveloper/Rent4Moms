@@ -13,7 +13,7 @@ export interface ProductReview {
   id: string; quoteId: string | null; quoteItemIndex: number | null; customerId: string | null; productId: string; productName: string;
   customerDisplayName: string; rating: number; comment: string; status: ReviewStatus; isFeatured: boolean; source: ReviewSource; sourceNote: string; reviewedAt: string; createdBy: string | null; moderatedBy: string | null; moderatedAt: string | null; createdAt: string; updatedAt: string;
 }
-export interface PublicProductReview { id: string; productId: string; productName: string; customerDisplayName: string; rating: number; comment: string; source: ReviewSource; isFeatured: boolean; reviewedAt: string; createdAt: string; }
+export interface PublicProductReview { id: string; productId: string; productName: string; customerDisplayName: string; rating: number; comment: string; source: ReviewSource; sourceLabel?: string | null; isFeatured: boolean; reviewedAt: string; createdAt: string; }
 export interface ManualReviewInput { productId: string; customerDisplayName: string; rating: number; comment: string; status: "published" | "hidden"; isFeatured: boolean; sourceNote: string; reviewedAt: string; }
 export type SupportStatus = "open" | "in_progress" | "closed";
 export interface SupportRequest {

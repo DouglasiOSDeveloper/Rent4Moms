@@ -143,11 +143,9 @@ export function ContactPage({ navigate: _navigate }: { navigate: (page: Page) =>
     || hasConfiguredValue(siteSettings.contact.serviceRegion);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <h1 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-4xl text-foreground mb-10">Fale conosco</h1>
-      <div className="grid lg:grid-cols-2 gap-12">
-        <EmptyState title="Formulário de contato não configurado" description="Nenhuma mensagem é simulada ou armazenada apenas no navegador. Use um dos canais reais publicados ao lado." />
-        <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6">
           <div className="bg-card rounded-2xl border border-border p-6">
             <p className="font-semibold text-foreground mb-4">Canais de atendimento</p>
             {!hasChannels ? <EmptyState compact title="Nenhum canal publicado" description="Cadastre telefone, WhatsApp, e-mail ou rede social no painel administrativo." /> : <div className="flex flex-col gap-4 text-sm">
@@ -164,6 +162,5 @@ export function ContactPage({ navigate: _navigate }: { navigate: (page: Page) =>
           </div>
         </div>
       </div>
-    </div>
   );
 }
