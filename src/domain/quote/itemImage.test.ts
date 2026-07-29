@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resolvePublicImageUrl } from "../catalog/assemblyImages";
 import type { AssemblyVariant, Product } from "../catalog/types";
 import type { QuoteItem } from "./types";
 import { resolveQuoteItemDisplayImage } from "./itemImage";
@@ -52,20 +53,21 @@ const catalog = { products: [product], assemblyVariants: [variant] };
 describe("imagem exibida em pedidos persistidos", () => {
   it("preserva a imagem pública registrada no snapshot", () => {
     expect(resolveQuoteItemDisplayImage(quoteItem({ photo: "/api/v1/media/assets/snapshot/content" }), catalog))
-      .toBe("/api/v1/media/assets/snapshot/content");
+      .toBe(resolvePublicImageUrl("/api/v1/media/assets/snapshot/content"));
   });
 
   it("recupera a imagem da variante e do ângulo quando o snapshot antigo está vazio", () => {
-    expect(resolveQuoteItemDisplayImage(quoteItem(), catalog)).toBe("/api/v1/media/assets/frt/content");
+    expect(resolveQuoteItemDisplayImage(quoteItem(), catalog))
+      .toBe(resolvePublicImageUrl("/api/v1/media/assets/frt/content"));
   });
 
   it("ignora uma referência administrativa privada e usa a mídia pública atual", () => {
     expect(resolveQuoteItemDisplayImage(quoteItem({ photo: "/api/v1/admin/media/assets/private/content" }), catalog))
-      .toBe("/api/v1/media/assets/frt/content");
+      .toBe(resolvePublicImageUrl("/api/v1/media/assets/frt/content"));
   });
 
   it("usa a foto pública do produto quando a variante não está mais disponível", () => {
     expect(resolveQuoteItemDisplayImage(quoteItem(), { products: [product], assemblyVariants: [] }))
-      .toBe("/api/v1/media/assets/product-photo/content");
+      .toBe(resolvePublicImageUrl("/api/v1/media/assets/product-photo/content"));
   });
 });
