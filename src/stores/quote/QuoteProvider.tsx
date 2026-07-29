@@ -6,6 +6,7 @@ import type {
   QuoteAddress,
   QuoteAdditionalInfo,
   QuoteConsents,
+  QuoteContractData,
   QuoteCustomerData,
   QuoteStoreValue,
   QuoteSubmission,
@@ -74,6 +75,10 @@ export function QuoteProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: "UPDATE_CUSTOMER", patch });
   }, []);
 
+  const updateContractData = useCallback((patch: Partial<QuoteContractData>) => {
+    dispatch({ type: "UPDATE_CONTRACT", patch });
+  }, []);
+
   const updateAdditionalInfo = useCallback((patch: Partial<QuoteAdditionalInfo>) => {
     dispatch({ type: "UPDATE_ADDITIONAL_INFO", patch });
   }, []);
@@ -107,6 +112,7 @@ export function QuoteProvider({ children }: { children: React.ReactNode }) {
     updateAddress,
     updateShippingQuote,
     updateCustomerData,
+    updateContractData,
     updateAdditionalInfo,
     updateConsents,
     lastSubmission,
@@ -123,6 +129,7 @@ export function QuoteProvider({ children }: { children: React.ReactNode }) {
     updateAddress,
     updateShippingQuote,
     updateCustomerData,
+    updateContractData,
     updateAdditionalInfo,
     updateConsents,
     lastSubmission,

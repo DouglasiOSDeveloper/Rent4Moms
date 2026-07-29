@@ -78,6 +78,16 @@ export interface QuoteCustomerData {
   whatsapp: string;
 }
 
+export interface QuoteContractData {
+  customerBirthDate: string;
+  nationality: string;
+  maritalStatus: string;
+  occupation: string;
+  babyName: string;
+  babySex: string;
+  babyBirthDate: string;
+}
+
 export interface QuoteAdditionalInfo {
   reason: string;
   notes: string;
@@ -114,6 +124,7 @@ export interface QuoteDraft {
   deliverySlot: string;
   shippingQuote: QuoteShippingQuote;
   customerData: QuoteCustomerData;
+  contractData: QuoteContractData;
   additionalInfo: QuoteAdditionalInfo;
   consents: QuoteConsents;
   updatedAt: string;
@@ -140,6 +151,17 @@ export interface AddProductToQuoteOptions {
 }
 
 
+export interface QuoteDocumentDelivery {
+  status: "sent" | "failed" | "not_configured";
+  attemptedAt: string;
+  recipientEmail: string;
+  provider: string;
+  messageId: string | null;
+  error: string | null;
+  attachmentIds: string[];
+  documentRevision: string;
+}
+
 export interface QuoteSubmission {
   id: string;
   code: string;
@@ -149,6 +171,7 @@ export interface QuoteSubmission {
   allocations: Array<{ componentRole: string; unitCode: string }>;
   createdAt: string;
   requiresAccountClaim?: boolean;
+  documentDelivery?: QuoteDocumentDelivery;
 }
 
 export interface QuoteStoreValue {
@@ -163,6 +186,7 @@ export interface QuoteStoreValue {
   updateAddress: (patch: Partial<QuoteAddress>) => void;
   updateShippingQuote: (estimate: ShippingEstimate | null, cep: string) => void;
   updateCustomerData: (patch: Partial<QuoteCustomerData>) => void;
+  updateContractData: (patch: Partial<QuoteContractData>) => void;
   updateAdditionalInfo: (patch: Partial<QuoteAdditionalInfo>) => void;
   updateConsents: (patch: Partial<QuoteConsents>) => void;
   lastSubmission: QuoteSubmission | null;

@@ -14,7 +14,7 @@ import type {
 import { formatMoneyFromCents } from "../../../lib/money";
 import {
   addOrderNote, applyOrderLifecycle, createHygieneJobs, createMaintenanceJobs,
-  deleteOperationalAttachment, loadOrderOperation, saveManualPayment, uploadOperationalAttachment,
+  deleteOperationalAttachment, loadOrderOperation, resendQuoteDocuments, saveManualPayment, uploadOperationalAttachment,
 } from "../../../services/operations/operationsApi";
 import { listAdminQuotes, type PersistedQuote } from "../../../services/quotes/quotesApi";
 import { listAdminReservations } from "../../../services/admin/adminApi";
@@ -128,6 +128,35 @@ function PaymentPanel({ detail, onSaved }: { detail: OrderOperationDetail; onSav
   </Panel>;
 }
 
+function DocumentsPanel({ detail, onUpdated }: { detail: OrderOperationDetail; onUpdated: (detail: OrderOperationDetail) => void }) {
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const documents = detail.attachments.filter((attachment) => attachment.kind === "document" && attachment.mimeType === "application/pdf");
+  const delivery = detail.documentDelivery;
+  const statusLabel = delivery?.status === "sent" ? "Enviado" : delivery?.status === "failed" ? "Falha no envio" : delivery?.status === "not_configured" ? "Canal não configurado" : "Aguardando envio";
+  const resend = async () => {
+    setSending(true); setError("");
+    try { onUpdated(await resendQuoteDocuments(detail.quote.id)); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível reenviar os documentos."); }
+    finally { setSending(false); }
+  };
+  return <Panel title="Contrato e pagamento" icon={<FileText size={17} className="text-primary"/>} actions={<StatusBadge status={statusLabel}/> }>
+    <div className="grid sm:grid-cols-2 gap-3">
+      {documents.map((document) => <a key={document.id} href={document.contentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-border p-4 hover:border-primary/50 hover:bg-secondary/40 transition-colors"><div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center"><FileText size={20}/></div><div className="min-w-0"><p className="text-sm font-medium truncate">{document.originalName}</p><p className="text-xs text-muted-foreground">PDF · {formatDateTime(document.createdAt)}</p></div><Eye size={16} className="ml-auto text-muted-foreground"/></a>)}
+      {!documents.length && <p className="sm:col-span-2 rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground text-center">Os PDFs ainda não foram gerados para este pedido.</p>}
+    </div>
+    <div className="mt-4 rounded-xl bg-secondary px-4 py-3 text-sm">
+      <p className="font-medium">Última tentativa</p>
+      <p className="mt-1 text-muted-foreground">{delivery ? `${formatDateTime(delivery.attemptedAt)} · ${delivery.recipientEmail}` : "Nenhuma tentativa registrada."}</p>
+      {delivery && <p className="mt-1 text-xs text-muted-foreground">Provedor: {delivery.provider}</p>}
+      {delivery?.messageId && <p className="mt-1 text-xs text-muted-foreground break-all">Identificador do provedor: {delivery.messageId}</p>}
+      {delivery?.error && <p className="mt-2 text-sm text-destructive">{delivery.error}</p>}
+    </div>
+    {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+    <div className="mt-4 flex justify-end"><Btn variant="outline" size="sm" disabled={sending} onClick={() => void resend()}>{sending ? <Loader2 size={14} className="animate-spin"/> : <Send size={14}/>}Reenviar PDFs por e-mail</Btn></div>
+  </Panel>;
+}
+
 function EvidenceUploader({ detail, onUploaded }: { detail: OrderOperationDetail; onUploaded: () => Promise<void> }) {
   const [kind, setKind] = useState<AttachmentKind>("delivery");
   const [unitId, setUnitId] = useState("");
@@ -150,14 +179,14 @@ function EvidenceUploader({ detail, onUploaded }: { detail: OrderOperationDetail
   };
   return <Panel title="Fotos e evidências" icon={<Camera size={17} className="text-primary"/>}>
     <div className="grid sm:grid-cols-3 gap-3">
-      <label className="text-sm font-medium">Tipo<select value={kind} onChange={(event)=>setKind(event.target.value as AttachmentKind)} className="mt-1.5 w-full rounded-xl border border-border bg-input-background px-3 py-2.5">{Object.entries(ATTACHMENT_LABELS).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+      <label className="text-sm font-medium">Tipo<select value={kind} onChange={(event)=>setKind(event.target.value as AttachmentKind)} className="mt-1.5 w-full rounded-xl border border-border bg-input-background px-3 py-2.5">{Object.entries(ATTACHMENT_LABELS).filter(([value])=>value!=="document").map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
       <label className="text-sm font-medium">Unidade relacionada<select value={unitId} onChange={(event)=>setUnitId(event.target.value)} className="mt-1.5 w-full rounded-xl border border-border bg-input-background px-3 py-2.5"><option value="">Pedido inteiro</option>{detail.allocations.map((allocation)=><option key={allocation.unitId} value={allocation.unitId}>{allocation.unitCode} · {ROLE_LABELS[allocation.componentRole]}</option>)}</select></label>
       <label className="text-sm font-medium">Fotos<input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event)=>setFiles(Array.from(event.target.files ?? []))} className="mt-1.5 block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-sm"/></label>
     </div>
     <label className="mt-3 block text-sm font-medium">Observação da evidência<input value={note} onChange={(event)=>setNote(event.target.value)} className="mt-1.5 w-full rounded-xl border border-border bg-input-background px-3 py-2.5"/></label>
     {error&&<p className="mt-3 text-sm text-destructive">{error}</p>}
     <div className="mt-4 flex justify-end"><Btn variant="primary" size="sm" disabled={uploading} onClick={()=>void upload()}>{uploading?<Loader2 size={14} className="animate-spin"/>:<Upload size={14}/>}Enviar {files.length||""} foto{files.length===1?"":"s"}</Btn></div>
-    <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{detail.attachments.map((attachment)=><article key={attachment.id} className="rounded-xl border border-border overflow-hidden"><ImageWithFallback src={attachment.contentUrl} alt={`${ATTACHMENT_LABELS[attachment.kind]} do pedido ${detail.quote.code}`} className="h-40 w-full object-cover bg-secondary"/><div className="p-3"><div className="flex justify-between gap-2"><div><p className="text-sm font-medium">{ATTACHMENT_LABELS[attachment.kind]}</p><p className="text-xs text-muted-foreground">{formatDateTime(attachment.createdAt)}</p></div><button type="button" onClick={()=>void remove(attachment.id)} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 size={14}/></button></div>{attachment.note&&<p className="mt-2 text-xs text-muted-foreground">{attachment.note}</p>}</div></article>)}{!detail.attachments.length&&<p className="sm:col-span-2 lg:col-span-3 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Nenhuma foto enviada.</p>}</div>
+    <div className="mt-5 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">{detail.attachments.filter((attachment)=>attachment.kind!=="document").map((attachment)=><article key={attachment.id} className="rounded-xl border border-border overflow-hidden"><ImageWithFallback src={attachment.contentUrl} alt={`${ATTACHMENT_LABELS[attachment.kind]} do pedido ${detail.quote.code}`} className="h-40 w-full object-cover bg-secondary"/><div className="p-3"><div className="flex justify-between gap-2"><div><p className="text-sm font-medium">{ATTACHMENT_LABELS[attachment.kind]}</p><p className="text-xs text-muted-foreground">{formatDateTime(attachment.createdAt)}</p></div><button type="button" onClick={()=>void remove(attachment.id)} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 size={14}/></button></div>{attachment.note&&<p className="mt-2 text-xs text-muted-foreground">{attachment.note}</p>}</div></article>)}{!detail.attachments.some((attachment)=>attachment.kind!=="document")&&<p className="sm:col-span-2 lg:col-span-3 rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Nenhuma foto enviada.</p>}</div>
   </Panel>;
 }
 
@@ -269,6 +298,7 @@ export function AdminOrderDetail() {
       <Panel title="Estoque alocado" icon={<Package size={17} className="text-primary"/>}><div className="space-y-2">{detail.allocations.map((allocation)=><div key={allocation.id} className="flex items-center justify-between gap-2 rounded-lg bg-secondary px-3 py-2"><div><p className="text-xs font-mono font-medium">{allocation.unitCode}</p><p className="text-xs text-muted-foreground">{ROLE_LABELS[allocation.componentRole]}</p></div><StatusBadge status={allocation.status==="active"?"Ativo":allocation.status==="expired"?"Expirado":"Concluído"}/></div>)}</div></Panel>
     </div>
     <Panel title="Itens contratados" icon={<Package size={17} className="text-primary"/>}><div className="space-y-3">{quote.payload.items.map((item)=><article key={item.id} className="flex flex-col sm:flex-row gap-4 rounded-xl border border-border p-4"><ImageWithFallback src={item.productSnapshot.photo} alt={item.productSnapshot.name} className="h-24 w-24 rounded-lg object-cover bg-secondary"/><div className="flex-1"><p className="font-medium">{item.productSnapshot.name}</p><p className="text-sm text-muted-foreground">{item.productSnapshot.assembly?`${item.productSnapshot.assembly.cover.name}${item.productSnapshot.assembly.reducer?` + ${item.productSnapshot.assembly.reducer.name}`:" + sem redutor"}`:item.productSnapshot.description}</p><div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground"><span>{item.quantity} unidade(s)</span><span>{item.periodDays} dias</span><span>{item.startDate} até {item.endDate}</span></div></div><p className="font-semibold">{formatMoneyFromCents(item.priceSnapshot.totalCents)}</p></article>)}</div></Panel>
+    <DocumentsPanel detail={detail} onUpdated={applyDetail}/>
     <PaymentPanel detail={detail} onSaved={(payment)=>setDetail({...detail,payment})}/>
     <OperationsPanel detail={detail} onUpdated={applyDetail}/>
     <EvidenceUploader detail={detail} onUploaded={async()=>{await reload();}}/>

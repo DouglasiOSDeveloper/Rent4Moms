@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { loadAdminContent, loadPublicLegalPage, loadPublicSiteContent, publishAdminLegalPage, saveAdminSiteSettings } from "./contentApi";
-import { DEFAULT_INTEGRATION_SETTINGS, DEFAULT_SITE_SETTINGS } from "../../test/fixtures/contentFixture";
+import { DEFAULT_INTEGRATION_SETTINGS, DEFAULT_OPERATIONAL_INTEGRATIONS, DEFAULT_SITE_SETTINGS } from "../../test/fixtures/contentFixture";
 
 describe("content API", () => {
   beforeEach(() => vi.restoreAllMocks());
@@ -23,7 +23,7 @@ describe("content API", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
       if (url.endsWith("/admin/content")) {
-        return new Response(JSON.stringify({ siteSettings: DEFAULT_SITE_SETTINGS, legalPages: [], integrations: DEFAULT_INTEGRATION_SETTINGS }), { status: 200, headers: { "content-type": "application/json" } });
+        return new Response(JSON.stringify({ siteSettings: DEFAULT_SITE_SETTINGS, legalPages: [], integrations: DEFAULT_INTEGRATION_SETTINGS, operationalIntegrations: DEFAULT_OPERATIONAL_INTEGRATIONS }), { status: 200, headers: { "content-type": "application/json" } });
       }
       if (url.includes("/publish")) {
         return new Response(JSON.stringify({ page: { slug: "termos-de-uso", publishedVersion: 2, versions: [] } }), { status: 200, headers: { "content-type": "application/json" } });
@@ -32,7 +32,9 @@ describe("content API", () => {
       return new Response(JSON.stringify({ siteSettings: DEFAULT_SITE_SETTINGS }), { status: 200, headers: { "content-type": "application/json" } });
     });
 
-    expect((await loadAdminContent()).integrations?.payments.mode).toBe("manual");
+    const admin = await loadAdminContent();
+    expect(admin.integrations?.payments.mode).toBe("manual");
+    expect(admin.operationalIntegrations.notifications.email).toMatchObject({ provider: "Brevo", status: "ready" });
     await saveAdminSiteSettings(DEFAULT_SITE_SETTINGS);
     expect((await publishAdminLegalPage("termos-de-uso")).publishedVersion).toBe(2);
     expect(fetchMock).toHaveBeenCalledTimes(3);

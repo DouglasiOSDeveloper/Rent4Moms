@@ -55,6 +55,7 @@ function draftFixture(): QuoteDraft {
     deliverySlot: "",
     shippingQuote: { status: "not_requested", amountCents: 0, cep: "" },
     customerData: { name: "Cliente", cpf: "52998224725", email: "cliente@teste.local", phone: "11999999999", whatsapp: "" },
+    contractData: { customerBirthDate: "1990-01-01", nationality: "Brasileira", maritalStatus: "Casada", occupation: "Professora", babyName: "Bebê", babySex: "Feminino", babyBirthDate: "2029-01-01" },
     additionalInfo: { reason: "", notes: "", referralSource: "" },
     consents: { terms: true, privacy: true, rentalConditions: true, marketing: false },
     updatedAt: new Date().toISOString(),
@@ -90,5 +91,6 @@ describe("quotesApi", () => {
     expect(item).not.toHaveProperty("productSnapshot");
     expect(item).not.toHaveProperty("priceSnapshot");
     expect(body).not.toHaveProperty("shippingQuote");
+    expect(body.contractData).toEqual({ customerBirthDate: "1990-01-01", nationality: "Brasileira", maritalStatus: "Casada", occupation: "Professora", babyName: "Bebê", babySex: "Feminino", babyBirthDate: "2029-01-01" });
   });
 });

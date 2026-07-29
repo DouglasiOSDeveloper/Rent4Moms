@@ -1,26 +1,24 @@
-import React, { useState } from "react";
-import { Search, MapPin, Calendar, MessageCircle, Package, Eye, DollarSign, ArrowRight, Shield, Leaf, Award, Info, Home, Droplets, Zap } from "lucide-react";
-import type { Page, Product } from "../../../domain/shared/types";
+import React from "react";
+import { Search, Calendar, MessageCircle, Package, Eye, DollarSign, ArrowRight, Shield, Leaf, Award, Info, Home, Droplets, Zap } from "lucide-react";
+import type { Page } from "../../../domain/shared/types";
 import { getCategoryNames } from "../../../domain/catalog/selectors";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
-import { Btn, Input } from "../../../components/prototype/PrototypeUI";
+import { Btn } from "../../../components/prototype/PrototypeUI";
 import { ProductCard } from "../../../components/prototype/ProductCard";
 import { useSiteContent } from "../../../stores/content/SiteContentProvider";
 import { EmptyState, ErrorState, LoadingState } from "../../../components/states/DataState";
 import { buildWhatsAppUrl } from "../../../lib/contact";
+import { resolveApiResourceUrl } from "../../../services/api/apiClient";
 
-export function HomePage({ navigate, onAddToQuote, quoteItemIds }: {
+export function HomePage({ navigate }: {
   navigate: (p: Page, params?: Record<string, string>) => void;
-  onAddToQuote: (p: Product) => void; quoteItemIds: string[];
 }) {
   const { products, publicCategories, syncStatus, refreshCatalog } = useCatalog();
   const { siteSettings } = useSiteContent();
   const whatsappUrl = buildWhatsAppUrl(siteSettings.contact.whatsapp, siteSettings.whatsapp.defaultMessage);
-  const [compareItems, setCompareItems] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [cep, setCep] = useState("");
+  const institutionalImageUrl = siteSettings.institutionalImage
+    ? resolveApiResourceUrl(`/api/v1/media/assets/${siteSettings.institutionalImage.assetId}/content`)
+    : "";
   const featured = products.filter(p => p.featured);
 
   return (
@@ -33,39 +31,23 @@ export function HomePage({ navigate, onAddToQuote, quoteItemIds }: {
 
       {/* Hero */}
       <section className="relative overflow-hidden bg-secondary">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+          <div className="text-center">
+            <div className="max-w-4xl mx-auto">
               <h1 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-4xl sm:text-5xl lg:text-6xl text-foreground leading-tight mb-6">
                 {siteSettings.brand.tagline || "Conteúdo institucional ainda não publicado"}
               </h1>
               {siteSettings.brand.description ? (
-                <p className="text-lg text-muted-foreground mb-8 leading-relaxed">{siteSettings.brand.description}</p>
+                <p className="text-lg text-muted-foreground mb-8 leading-relaxed max-w-2xl mx-auto">{siteSettings.brand.description}</p>
               ) : (
-                <p className="text-lg text-muted-foreground mb-8 leading-relaxed">A apresentação institucional será exibida após o cadastro no painel administrativo.</p>
+                <p className="text-lg text-muted-foreground mb-8 leading-relaxed max-w-2xl mx-auto">A apresentação institucional será exibida após o cadastro no painel administrativo.</p>
               )}
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3 justify-center">
                 <Btn variant="primary" size="lg" onClick={() => navigate("catalog")}>
                   <Search size={18} />Encontrar uma cadeirinha
                 </Btn>
                 <Btn variant="outline" size="lg" onClick={() => navigate("how-it-works")}>
                   Como funciona <ArrowRight size={18} />
-                </Btn>
-              </div>
-            </div>
-
-            {/* Search widget */}
-            <div className="bg-card rounded-2xl border border-border p-6 shadow-lg">
-              <p className="font-semibold text-foreground mb-4">Consultar disponibilidade</p>
-              <div className="flex flex-col gap-4">
-                <Input label="Produto ou categoria" placeholder="Ex: MamaRoo, cadeirinha para carro..." value={searchQuery} onChange={setSearchQuery} icon={<Search size={16} />} />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="Data de início" type="date" value={startDate} onChange={setStartDate} />
-                  <Input label="Data de devolução" type="date" value={endDate} onChange={setEndDate} />
-                </div>
-                <Input label="CEP" placeholder="00000-000" value={cep} onChange={setCep} icon={<MapPin size={16} />} />
-                <Btn variant="primary" fullWidth onClick={() => navigate("catalog")}>
-                  <Search size={16} />Buscar disponibilidade
                 </Btn>
               </div>
             </div>
@@ -145,11 +127,13 @@ export function HomePage({ navigate, onAddToQuote, quoteItemIds }: {
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {featured.map(p => (
               <ProductCard
-                key={p.id} product={p} actionsMode="details-only" categoryNames={getCategoryNames(p, publicCategories)} navigate={navigate}
-                onAddToQuote={onAddToQuote}
-                isInQuote={quoteItemIds.includes(p.id)}
-                isComparing={compareItems.includes(p.id)}
-                onToggleCompare={id => setCompareItems(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+                key={p.id}
+                product={p}
+                categoryNames={getCategoryNames(p, publicCategories)}
+                navigate={navigate}
+                isComparing={false}
+                onToggleCompare={() => undefined}
+                showCompare={false}
               />
             ))}
           </div>
@@ -210,7 +194,15 @@ export function HomePage({ navigate, onAddToQuote, quoteItemIds }: {
               ))}
             </div>
           </div>
-          <EmptyState title="Imagem institucional não cadastrada" description="A mídia oficial será exibida após o upload no módulo de conteúdo." />
+          {institutionalImageUrl ? (
+            <img
+              src={institutionalImageUrl}
+              alt={siteSettings.institutionalImage?.alt || "Imagem institucional da Rent4Moms"}
+              className="w-full min-h-80 max-h-[460px] rounded-2xl border border-border object-cover shadow-sm"
+            />
+          ) : (
+            <EmptyState title="Imagem institucional não cadastrada" description="A mídia oficial será exibida após o upload no módulo de conteúdo." />
+          )}
         </div>
       </section>
 

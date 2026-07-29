@@ -1,4 +1,4 @@
-export type MediaOwnerType = "product" | "chair_model" | "cover" | "reducer" | "ball_set" | "assembly_variant";
+export type MediaOwnerType = "product" | "chair_model" | "cover" | "reducer" | "ball_set" | "assembly_variant" | "site_content";
 
 export interface MediaAngle {
   id: string;

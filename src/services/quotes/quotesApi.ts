@@ -24,6 +24,7 @@ export async function createRemoteQuote(draft: QuoteDraft): Promise<QuoteSubmiss
     address: draft.address,
     deliverySlot: draft.deliverySlot,
     customerData: draft.customerData,
+    contractData: draft.contractData,
     additionalInfo: draft.additionalInfo,
     consents: draft.consents,
     updatedAt: draft.updatedAt,

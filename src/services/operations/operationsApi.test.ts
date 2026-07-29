@@ -5,6 +5,7 @@ import {
   addOrderNote,
   applyOrderLifecycle,
   normalizeOrderOperationDetailImageUrls,
+  resendQuoteDocuments,
   saveManualPayment,
   uploadOperationalAttachment,
 } from "./operationsApi";
@@ -79,4 +80,18 @@ describe("operationsApi", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(1, `${API_BASE_URL}/admin/operations/orders/quote-1/lifecycle`, expect.objectContaining({ method: "POST" }));
     expect(fetchMock).toHaveBeenNthCalledWith(2, `${API_BASE_URL}/admin/operations/orders/quote-1/notes`, expect.objectContaining({ method: "POST" }));
   });
+  it("resends the generated contract and payment documents without creating a new quote", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      detail: {
+        quote: { id: "quote-1", payload: { items: [] } },
+        allocations: [], payment: null, attachments: [], events: [], documentDelivery: { status: "sent", attemptedAt: "2030-01-01T00:00:00.000Z", recipientEmail: "cliente@teste.local", provider: "brevo", messageId: "message-1", error: null, attachmentIds: [], documentRevision: "r1" },
+        hygieneJobs: [], maintenanceJobs: [],
+      },
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const detail = await resendQuoteDocuments("quote-1");
+    expect(detail.documentDelivery?.status).toBe("sent");
+    expect(fetchMock).toHaveBeenCalledWith(`${API_BASE_URL}/admin/operations/orders/quote-1/documents/resend`, expect.objectContaining({ method: "POST", credentials: "include" }));
+  });
+
 });

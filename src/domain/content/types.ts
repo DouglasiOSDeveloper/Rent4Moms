@@ -10,6 +10,11 @@ export interface BusinessHoursEntry {
   closed: boolean;
 }
 
+export interface InstitutionalImageReference {
+  assetId: string;
+  alt: string;
+}
+
 export interface SiteSettingsDocument {
   brand: {
     name: string;
@@ -40,6 +45,7 @@ export interface SiteSettingsDocument {
   whatsapp: {
     defaultMessage: string;
   };
+  institutionalImage: InstitutionalImageReference | null;
   updatedAt: string;
 }
 
@@ -63,6 +69,21 @@ export interface IntegrationSettingsDocument {
     sms: IntegrationChannelSettings;
   };
   updatedAt: string;
+}
+
+export interface OperationalIntegrationChannel {
+  configured: boolean;
+  provider: string;
+  status: IntegrationStatus;
+  source: "server_environment" | "not_implemented";
+}
+
+export interface OperationalIntegrationSnapshot {
+  notifications: {
+    email: OperationalIntegrationChannel;
+    whatsapp: OperationalIntegrationChannel;
+    sms: OperationalIntegrationChannel;
+  };
 }
 
 export interface LegalPageVersion {
@@ -109,6 +130,7 @@ export interface AdminContentSnapshot {
   siteSettings: SiteSettingsDocument | null;
   legalPages: LegalPageAdmin[];
   integrations: IntegrationSettingsDocument | null;
+  operationalIntegrations: OperationalIntegrationSnapshot;
 }
 
 export const LEGAL_PATHS: Record<string, string> = {

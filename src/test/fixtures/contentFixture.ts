@@ -1,4 +1,4 @@
-import type { IntegrationSettingsDocument, PublicLegalPage, SiteSettingsDocument } from "../../domain/content/types";
+import type { IntegrationSettingsDocument, OperationalIntegrationSnapshot, PublicLegalPage, SiteSettingsDocument } from "../../domain/content/types";
 
 export const DEFAULT_SITE_SETTINGS: SiteSettingsDocument = {
   brand: {
@@ -32,6 +32,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsDocument = {
     showAddress: false,
   },
   whatsapp: { defaultMessage: "Olá! Gostaria de saber mais sobre os produtos da Rent4Moms." },
+  institutionalImage: null,
   updatedAt: new Date(0).toISOString(),
 };
 
@@ -46,3 +47,11 @@ export const DEFAULT_INTEGRATION_SETTINGS: IntegrationSettingsDocument = {
 };
 
 export const DEFAULT_PUBLIC_LEGAL_PAGES: PublicLegalPage[] = [];
+
+export const DEFAULT_OPERATIONAL_INTEGRATIONS: OperationalIntegrationSnapshot = {
+  notifications: {
+    email: { configured: true, provider: "Brevo", status: "ready", source: "server_environment" },
+    whatsapp: { configured: false, provider: "", status: "not_configured", source: "not_implemented" },
+    sms: { configured: false, provider: "", status: "not_configured", source: "not_implemented" },
+  },
+};

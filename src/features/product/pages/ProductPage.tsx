@@ -697,7 +697,7 @@ function ProductPageContent({
         {activeTab === "avaliacoes" && <ProductReviewsPanel rating={displayRating} reviewCount={displayReviewCount} reviews={reviewData.reviews} loading={reviewsLoading} />}
       </div>
 
-      {related.length > 0 && <div><div className="flex items-center justify-between mb-6"><h2 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-2xl text-foreground">Produtos relacionados</h2><button onClick={() => navigate("catalog")} className="text-sm text-primary hover:underline">Ver todos</button></div><div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">{related.map((item) => <ProductCard key={item.id} product={item} categoryNames={getCategoryNames(item, publicCategories)} navigate={navigate} onAddToQuote={onAddToQuote} isInQuote={quoteItemIds.includes(item.id)} isComparing={false} onToggleCompare={() => undefined} />)}</div></div>}
+      {related.length > 0 && <div><div className="flex items-center justify-between mb-6"><h2 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-2xl text-foreground">Produtos relacionados</h2><button onClick={() => navigate("catalog")} className="text-sm text-primary hover:underline">Ver todos</button></div><div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">{related.map((item) => <ProductCard key={item.id} product={item} categoryNames={getCategoryNames(item, publicCategories)} navigate={navigate} isComparing={false} onToggleCompare={() => undefined} showCompare={false} />)}</div></div>}
     </div>
   );
 }

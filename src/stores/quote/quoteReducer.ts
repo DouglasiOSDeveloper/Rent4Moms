@@ -6,6 +6,7 @@ import type {
   QuoteAddress,
   QuoteAdditionalInfo,
   QuoteConsents,
+  QuoteContractData,
   QuoteCustomerData,
   QuoteDraft,
 } from "../../domain/quote/types";
@@ -21,6 +22,7 @@ export type QuoteAction =
   | { type: "UPDATE_ADDRESS"; patch: Partial<QuoteAddress> }
   | { type: "UPDATE_SHIPPING_QUOTE"; estimate: ShippingEstimate | null; cep: string }
   | { type: "UPDATE_CUSTOMER"; patch: Partial<QuoteCustomerData> }
+  | { type: "UPDATE_CONTRACT"; patch: Partial<QuoteContractData> }
   | { type: "UPDATE_ADDITIONAL_INFO"; patch: Partial<QuoteAdditionalInfo> }
   | { type: "UPDATE_CONSENTS"; patch: Partial<QuoteConsents> }
   | { type: "CLEAR" };
@@ -122,6 +124,9 @@ export function quoteReducer(state: QuoteDraft, action: QuoteAction): QuoteDraft
 
     case "UPDATE_CUSTOMER":
       return touch({ ...state, customerData: { ...state.customerData, ...action.patch } });
+
+    case "UPDATE_CONTRACT":
+      return touch({ ...state, contractData: { ...state.contractData, ...action.patch } });
 
     case "UPDATE_ADDITIONAL_INFO":
       return touch({ ...state, additionalInfo: { ...state.additionalInfo, ...action.patch } });

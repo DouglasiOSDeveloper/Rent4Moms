@@ -70,11 +70,26 @@ describe("Rent4Moms frontend routing baseline", () => {
   it("renders the home page at the root route", async () => {
     await renderAt("/");
     expect(container.textContent).toContain("Mais praticidade para você. Mais conforto para o seu bebê.");
+    expect(container.textContent).not.toContain("Consultar disponibilidade");
   });
 
   it("renders the catalog from its direct URL", async () => {
     await renderAt("/produtos");
     expect(container.textContent).toContain("Catálogo de produtos");
+    expect([...container.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Orçamento")).toBe(false);
+  });
+
+  it("clears a single category filter loaded from the URL", async () => {
+    await renderAt("/produtos?category=cadeiras-de-balanco");
+    expect(container.textContent).not.toContain("NextFit Sport");
+
+    const clearButton = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.trim() === "Limpar filtros",
+    );
+    expect(clearButton).toBeTruthy();
+    await act(async () => clearButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+
+    expect(container.textContent).toContain("NextFit Sport");
   });
 
   it("renders a product from a dynamic direct URL", async () => {
@@ -143,7 +158,32 @@ describe("Rent4Moms frontend routing baseline", () => {
     expect(container.textContent).toContain("Período: 30 dias");
     expect(container.textContent).toContain(`${formatDateBR(startDate)} a ${formatDateBR(addDays(startDate, 30))}`);
     expect(container.textContent?.replace(/\u00a0/g, " ")).toContain("R$ 399,00");
-    expect(container.textContent?.replace(/\u00a0/g, " ")).not.toContain("R$ 424,00");
+    expect(container.textContent?.replace(/\u00a0/g, " ")).toContain("R$ 424,00");
+
+    const continueButton = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Continuar"),
+    );
+    expect(continueButton).toBeTruthy();
+    await act(async () => continueButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+
+    expect(container.textContent).toContain("Resumo financeiro atualizado");
+    expect(container.textContent).toContain("Produto-base");
+    expect(container.textContent).toContain("Acessórios");
+    expect(container.textContent).toContain("Frete");
+    expect(container.querySelector<HTMLInputElement>('input[placeholder="Nome da rua"]')?.value).toBe("Praça da Sé");
+    expect(container.querySelector<HTMLInputElement>('input[placeholder="123"]')?.value).toBe("1");
+    expect(container.textContent?.replace(/\u00a0/g, " ")).toContain("R$ 25,00");
+
+    const sixtyDaysButton = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.replace(/\s/g, "") === "60dias",
+    );
+    expect(sixtyDaysButton).toBeTruthy();
+    await act(async () => sixtyDaysButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+
+    const quoteText = container.textContent?.replace(/\u00a0/g, " ") ?? "";
+    expect(quoteText).toContain(formatDateBR(addDays(startDate, 60)));
+    expect(quoteText).toContain("R$ 798,00");
+    expect(quoteText).toContain("R$ 823,00");
   });
 
 

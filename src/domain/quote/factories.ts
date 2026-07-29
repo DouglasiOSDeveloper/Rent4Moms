@@ -35,6 +35,15 @@ export function createEmptyQuoteDraft(): QuoteDraft {
       phone: "",
       whatsapp: "",
     },
+    contractData: {
+      customerBirthDate: "",
+      nationality: "Brasileira",
+      maritalStatus: "",
+      occupation: "",
+      babyName: "",
+      babySex: "",
+      babyBirthDate: "",
+    },
     additionalInfo: {
       reason: "",
       notes: "",

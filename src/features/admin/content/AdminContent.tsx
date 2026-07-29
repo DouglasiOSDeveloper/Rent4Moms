@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Archive, CheckCircle, ExternalLink, FileText, Globe, LoaderCircle, Plus, RefreshCw, Save, Send, Settings2 } from "lucide-react";
+import { Archive, CheckCircle, ExternalLink, Globe, ImageIcon, LoaderCircle, Plus, RefreshCw, Save, Send, Settings2, Trash2, Upload } from "lucide-react";
 import { Btn, Input, Select, cn } from "../../../components/prototype/PrototypeUI";
 import { createEmptyIntegrationSettings, createEmptySiteSettings } from "../../../domain/content/emptyContent";
 import type { AdminContentSnapshot, IntegrationSettingsDocument, LegalPageAdmin, SiteSettingsDocument } from "../../../domain/content/types";
@@ -14,6 +14,8 @@ import {
   updateAdminLegalPage,
 } from "../../../services/content/contentApi";
 import { useSiteContent } from "../../../stores/content/SiteContentProvider";
+import { mediaApi } from "../../../services/media/mediaApi";
+import { resolveApiResourceUrl } from "../../../services/api/apiClient";
 
 const tabs = [
   ["institucional", "Institucional"],
@@ -42,6 +44,8 @@ export function AdminContent() {
   const [snapshot, setSnapshot] = useState<AdminContentSnapshot | null>(null);
   const [siteDraft, setSiteDraft] = useState<SiteSettingsDocument>(() => createEmptySiteSettings());
   const [integrationsDraft, setIntegrationsDraft] = useState<IntegrationSettingsDocument>(() => createEmptyIntegrationSettings());
+  const [institutionalFile, setInstitutionalFile] = useState<File | null>(null);
+  const [institutionalAlt, setInstitutionalAlt] = useState("Equipe Rent4Moms");
   const [selectedSlug, setSelectedSlug] = useState("");
   const [legalForm, setLegalForm] = useState<LegalForm>(emptyLegalForm);
   const [creatingLegal, setCreatingLegal] = useState(false);
@@ -51,6 +55,9 @@ export function AdminContent() {
   const [error, setError] = useState("");
 
   const selectedPage = useMemo(() => snapshot?.legalPages.find((page) => page.slug === selectedSlug) ?? null, [selectedSlug, snapshot]);
+  const institutionalImageUrl = siteDraft.institutionalImage
+    ? resolveApiResourceUrl(`/api/v1/media/assets/${siteDraft.institutionalImage.assetId}/content`)
+    : "";
 
   const reload = async () => {
     setLoading(true);
@@ -58,7 +65,12 @@ export function AdminContent() {
     try {
       const data = await loadAdminContent();
       setSnapshot(data);
-      setSiteDraft(structuredClone(data.siteSettings ?? createEmptySiteSettings()));
+      const loadedSite = data.siteSettings
+        ? { ...structuredClone(data.siteSettings), institutionalImage: data.siteSettings.institutionalImage ?? null }
+        : createEmptySiteSettings();
+      setSiteDraft(loadedSite);
+      setInstitutionalAlt(loadedSite.institutionalImage?.alt || "Equipe Rent4Moms");
+      setInstitutionalFile(null);
       setIntegrationsDraft(structuredClone(data.integrations ?? createEmptyIntegrationSettings()));
       const first = data.legalPages.find((page) => page.status !== "archived") ?? data.legalPages[0];
       if (first) {
@@ -96,12 +108,58 @@ export function AdminContent() {
     }
   };
 
-  const saveSite = () => runAction(async () => {
-    const saved = await saveAdminSiteSettings(siteDraft);
+  const applySavedSite = async (saved: SiteSettingsDocument) => {
     setSiteDraft(saved);
     setSnapshot((current) => current ? { ...current, siteSettings: saved } : current);
+    setInstitutionalAlt(saved.institutionalImage?.alt || "Equipe Rent4Moms");
     await refreshSiteContent();
+  };
+
+  const saveSite = () => runAction(async () => {
+    const saved = await saveAdminSiteSettings(siteDraft);
+    await applySavedSite(saved);
   }, "Dados institucionais publicados no site.");
+
+  const uploadInstitutionalImage = () => runAction(async () => {
+    if (!institutionalFile) throw new Error("Escolha uma imagem JPG, PNG ou WebP.");
+    const alt = institutionalAlt.trim();
+    if (!alt) throw new Error("Informe um texto alternativo para a imagem institucional.");
+    const previousAssetId = siteDraft.institutionalImage?.assetId ?? null;
+    const uploaded = await mediaApi.upload({
+      ownerType: "site_content",
+      ownerId: "institutional",
+      angleId: null,
+      alt,
+      isPublic: true,
+      isPrimary: true,
+      sortOrder: 0,
+      file: institutionalFile,
+    });
+    try {
+      const saved = await saveAdminSiteSettings({
+        ...siteDraft,
+        institutionalImage: { assetId: uploaded.id, alt },
+      });
+      await applySavedSite(saved);
+    } catch (caught) {
+      await mediaApi.deleteAsset(uploaded.id).catch(() => undefined);
+      throw caught;
+    }
+    if (previousAssetId && previousAssetId !== uploaded.id) {
+      await mediaApi.deleteAsset(previousAssetId).catch(() => undefined);
+    }
+    setInstitutionalFile(null);
+  }, siteDraft.institutionalImage ? "Imagem institucional substituída e publicada." : "Imagem institucional publicada no site.");
+
+  const removeInstitutionalImage = () => runAction(async () => {
+    const previousAssetId = siteDraft.institutionalImage?.assetId;
+    if (!previousAssetId) return;
+    const saved = await saveAdminSiteSettings({ ...siteDraft, institutionalImage: null });
+    await applySavedSite(saved);
+    await mediaApi.deleteAsset(previousAssetId).catch(() => undefined);
+    setInstitutionalFile(null);
+    setInstitutionalAlt("Equipe Rent4Moms");
+  }, "Imagem institucional removida do site.");
 
   const saveLegalDraft = () => runAction(async () => {
     if (!legalForm.title.trim() || legalForm.content.trim().length < 20) throw new Error("Informe título e conteúdo com pelo menos 20 caracteres.");
@@ -176,6 +234,44 @@ export function AdminContent() {
               <div className="md:col-span-2">
                 <label className="text-sm font-medium text-foreground">Descrição institucional</label>
                 <textarea className="mt-1.5 w-full min-h-28 rounded-xl border border-border bg-input-background px-4 py-3" value={siteDraft.brand.description} onChange={(event) => setSiteDraft({ ...siteDraft, brand: { ...siteDraft.brand, description: event.target.value } })} />
+              </div>
+            </div>
+          </section>
+
+          <section className="bg-white rounded-xl border border-border p-6">
+            <div className="flex items-center gap-2 mb-4"><ImageIcon size={18} className="text-primary" /><h2 className="font-semibold text-foreground">Imagem institucional</h2></div>
+            <div className="grid lg:grid-cols-[320px_1fr] gap-5 items-start">
+              <div className="overflow-hidden rounded-xl border border-border bg-secondary min-h-52">
+                {institutionalImageUrl ? (
+                  <img src={institutionalImageUrl} alt={siteDraft.institutionalImage?.alt || "Imagem institucional"} className="h-52 w-full object-cover" />
+                ) : (
+                  <div className="h-52 flex flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
+                    <ImageIcon size={30} />
+                    <p className="text-sm font-medium text-foreground">Nenhuma imagem publicada</p>
+                    <p className="text-xs">Ela será exibida na página Sobre nós e no bloco institucional da página inicial.</p>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-4">
+                <Input label="Texto alternativo" value={institutionalAlt} onChange={(value) => {
+                  setInstitutionalAlt(value);
+                  if (siteDraft.institutionalImage) setSiteDraft({ ...siteDraft, institutionalImage: { ...siteDraft.institutionalImage, alt: value } });
+                }} />
+                <div>
+                  <label className="text-sm font-medium text-foreground">Arquivo da imagem</label>
+                  <input
+                    className="mt-1.5 block w-full rounded-xl border border-border bg-input-background px-4 py-3 text-sm"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onClick={(event) => { event.currentTarget.value = ""; }}
+                    onChange={(event) => setInstitutionalFile(event.target.files?.[0] ?? null)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1.5">Formatos aceitos: JPG, PNG e WebP. O limite segue a configuração de upload do servidor.</p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Btn variant="primary" onClick={() => void uploadInstitutionalImage()} disabled={saving || !institutionalFile}><Upload size={14} />{siteDraft.institutionalImage ? "Substituir e publicar" : "Enviar e publicar"}</Btn>
+                  {siteDraft.institutionalImage && <Btn variant="outline" onClick={() => void removeInstitutionalImage()} disabled={saving}><Trash2 size={14} />Remover imagem</Btn>}
+                </div>
               </div>
             </div>
           </section>
@@ -262,7 +358,29 @@ export function AdminContent() {
                 {!creatingLegal && <Btn variant="primary" onClick={() => void publishLegal()} disabled={saving}><Send size={14} />Publicar nova versão</Btn>}
                 <Btn variant="ghost" onClick={() => void archiveLegal()} disabled={saving}><Archive size={14} />{creatingLegal ? "Cancelar" : "Arquivar"}</Btn>
               </div>
-              <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">Salvar o rascunho não altera o site. A publicação cria uma versão imutável e passa a exibi-la no rodapé e na página pública.</div>
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">Salvar o rascunho não altera o site. A publicação cria uma versão imutável e passa a exibi-la no rodapé e na página pública. Os textos contratuais e de privacidade devem passar por revisão jurídica antes da divulgação comercial.</div>
+              {!creatingLegal && selectedPage && selectedPage.versions.length > 0 && (
+                <div className="rounded-xl border border-border overflow-hidden">
+                  <div className="px-4 py-3 bg-secondary border-b border-border">
+                    <h3 className="text-sm font-semibold text-foreground">Histórico de versões publicadas</h3>
+                    <p className="text-xs text-muted-foreground mt-1">Versões anteriores permanecem preservadas e não são alteradas ao salvar um novo rascunho.</p>
+                  </div>
+                  <div className="divide-y divide-border max-h-64 overflow-y-auto">
+                    {[...selectedPage.versions].sort((left, right) => right.version - left.version).map((version) => (
+                      <details key={version.id} className="group">
+                        <summary className="cursor-pointer list-none px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-secondary/60">
+                          <span className="text-sm font-medium text-foreground">Versão {version.version}: {version.title}</span>
+                          <span className="text-xs text-muted-foreground">{new Date(version.publishedAt).toLocaleString("pt-BR")}</span>
+                        </summary>
+                        <div className="px-4 pb-4">
+                          <p className="text-xs text-muted-foreground mb-2">{version.summary}</p>
+                          <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-lg bg-secondary p-3 text-xs text-foreground font-mono">{version.content}</pre>
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         </div>
@@ -270,7 +388,24 @@ export function AdminContent() {
 
       {tab === "integracoes" && (
         <div className="space-y-6">
-          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">Esta tela armazena apenas o modo operacional, o provedor pretendido e o estado da conexão. Chaves, tokens e segredos deverão ficar exclusivamente no backend.</div>
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">O estado operacional abaixo é lido do servidor. Chaves, tokens e segredos permanecem exclusivamente no backend e nunca são enviados ao navegador.</div>
+          <section className="bg-white rounded-xl border border-border p-6">
+            <div className="flex items-center gap-2 mb-4"><Globe size={18} className="text-primary" /><h2 className="font-semibold text-foreground">Estado operacional do servidor</h2></div>
+            <div className="grid md:grid-cols-3 gap-4">
+              {(["email", "whatsapp", "sms"] as const).map((channel) => {
+                const runtime = snapshot?.operationalIntegrations?.notifications[channel] ?? { configured: false, provider: "", status: "not_configured" as const, source: "not_implemented" as const };
+                const title = channel === "email" ? "E-mail" : channel === "whatsapp" ? "WhatsApp" : "SMS";
+                return (
+                  <div key={channel} className="rounded-xl border border-border p-4">
+                    <div className="flex items-center justify-between gap-3"><span className="font-medium text-foreground">{title}</span><StatusPill status={runtime.status} /></div>
+                    <p className="text-sm text-muted-foreground mt-3">{runtime.provider || "Nenhum provedor implementado"}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{runtime.configured ? "Configuração válida detectada no ambiente do servidor." : runtime.status === "disabled" ? "Canal desativado no ambiente do servidor." : "Canal ainda não configurado ou implementado."}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">As opções abaixo são apenas a preparação administrativa pretendida. Elas não alteram variáveis de ambiente nem substituem a configuração real do Brevo.</div>
           <section className="bg-white rounded-xl border border-border p-6">
             <div className="flex items-center gap-2 mb-4"><Settings2 size={18} className="text-primary" /><h2 className="font-semibold text-foreground">Pagamentos</h2><StatusPill status={integrationsDraft.payments.status} /></div>
             <div className="grid md:grid-cols-2 gap-4">
@@ -281,7 +416,7 @@ export function AdminContent() {
             </div>
           </section>
           <section className="bg-white rounded-xl border border-border p-6">
-            <div className="flex items-center gap-2 mb-4"><Globe size={18} className="text-primary" /><h2 className="font-semibold text-foreground">Notificações</h2></div>
+            <div className="flex items-center gap-2 mb-4"><Globe size={18} className="text-primary" /><h2 className="font-semibold text-foreground">Preparação administrativa das notificações</h2></div>
             <div className="grid md:grid-cols-3 gap-4">
               {(["email", "whatsapp", "sms"] as const).map((channel) => {
                 const current = integrationsDraft.notifications[channel];

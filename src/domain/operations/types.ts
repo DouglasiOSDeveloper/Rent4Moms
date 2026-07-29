@@ -1,5 +1,6 @@
 import type { InventoryAllocation } from "../inventory/types";
 import type { PersistedQuote } from "../../services/quotes/quotesApi";
+import type { QuoteDocumentDelivery } from "../quote/types";
 
 export type PaymentStatus = "pending" | "received" | "partial" | "refunded";
 export type PaymentMethod = "pix" | "card" | "transfer" | "cash" | "payment_link" | "other";
@@ -15,7 +16,7 @@ export interface ManualPayment {
   createdAt: string;
   updatedAt: string;
 }
-export type QuoteEventType = "note" | "payment" | "reservation" | "preparation" | "delivery" | "return" | "cancellation" | "hygiene" | "maintenance";
+export type QuoteEventType = "note" | "payment" | "reservation" | "preparation" | "delivery" | "return" | "cancellation" | "hygiene" | "maintenance" | "document";
 export interface QuoteOperationEvent {
   id: string;
   quoteId: string;
@@ -80,6 +81,7 @@ export interface OrderOperationDetail {
   payment: ManualPayment | null;
   attachments: OperationalAttachment[];
   events: QuoteOperationEvent[];
+  documentDelivery: QuoteDocumentDelivery | null;
   hygieneJobs: HygieneJob[];
   maintenanceJobs: MaintenanceJob[];
 }

@@ -149,7 +149,7 @@ export function AppRouter() {
     completeClaim,
     logout,
   } = useAppState();
-  const { addProduct, quoteItemIds } = useQuote();
+  const { addProduct } = useQuote();
 
   const navigate = useCallback<NavigateToPage>((page, params) => {
     routerNavigate(pagePath(page, params));
@@ -180,8 +180,8 @@ export function AppRouter() {
   return (
     <Routes>
       <Route element={<PublicShell currentPage={currentPage} navigate={navigate} onLogout={handleLogout} />}>
-        <Route path="/" element={<HomePage navigate={navigate} onAddToQuote={addProduct} quoteItemIds={quoteItemIds} />} />
-        <Route path="/produtos" element={<CatalogPage navigate={navigate} onAddToQuote={addProduct} quoteItemIds={quoteItemIds} />} />
+        <Route path="/" element={<HomePage navigate={navigate} />} />
+        <Route path="/produtos" element={<CatalogPage navigate={navigate} />} />
         <Route path="/produtos/:productId" element={<ProductRoute navigate={navigate} />} />
         <Route path="/comparar" element={<ComparePage navigate={navigate} onAddToQuote={addProduct} />} />
         <Route path="/orcamento" element={<QuotePage navigate={navigate} deliverySettings={deliverySettings} />} />

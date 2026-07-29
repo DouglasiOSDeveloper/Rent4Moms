@@ -1,24 +1,15 @@
 import React, { useState } from "react";
-import {
-  Menu, X, ShoppingBag, Heart, Star, ChevronDown, ChevronRight, ChevronLeft,
-  ChevronUp, Search, Filter, MapPin, Calendar, Phone, Mail, Instagram,
-  MessageCircle, User, Settings, LogOut, Bell, Package, FileText, Truck,
-  Wrench, CheckCircle, Clock, AlertCircle, XCircle, Eye, Edit, Trash2,
-  Plus, Download, BarChart2, Users, DollarSign, TrendingUp, ArrowRight,
-  Shield, Leaf, Award, Info, Lock, Check, Home, List, Tag, Archive,
-  Layers, Droplets, Clipboard, Activity, Hash, RefreshCw, Upload,
-  MoreHorizontal, Minus, BookOpen, Globe, Zap
-} from "lucide-react";
+import { Eye, Heart, Star } from "lucide-react";
 import type { Page, Product } from "../../domain/shared/types";
 import { AvailabilityBadge, Btn, cn } from "./PrototypeUI";
 import { calculateRentalPrice } from "../../domain/pricing/pricingEngine";
 import { formatMoneyFromCents } from "../../lib/money";
 
-export function ProductCard({ product, categoryNames, navigate, onAddToQuote, isInQuote, isComparing, onToggleCompare, actionsMode = "full" }: {
+export function ProductCard({ product, categoryNames, navigate, isComparing, onToggleCompare, showCompare = true }: {
   product: Product; categoryNames: string[]; navigate: (p: Page, params?: Record<string, string>) => void;
-  onAddToQuote: (p: Product) => void; isInQuote: boolean; isComparing: boolean;
+  isComparing: boolean;
   onToggleCompare: (id: string) => void;
-  actionsMode?: "full" | "details-only";
+  showCompare?: boolean;
 }) {
   const [fav, setFav] = useState(false);
   const monthlyPrice = calculateRentalPrice({
@@ -72,22 +63,12 @@ export function ProductCard({ product, categoryNames, navigate, onAddToQuote, is
           <p className="text-xl font-bold text-foreground">{formatMoneyFromCents(monthlyPrice.totalCents)}<span className="text-sm font-normal text-muted-foreground"> / 30 dias</span></p>
           <p className="text-xs text-muted-foreground mt-0.5">Valor final calculado conforme o período</p>
         </div>
-        <div className="flex gap-2 mt-2">
-          <Btn variant="outline" size="sm" onClick={() => navigate("product", { productId: product.id })} className="flex-1">
+        <div className="mt-2">
+          <Btn variant="outline" size="sm" onClick={() => navigate("product", { productId: product.id })} fullWidth>
             <Eye size={14} />Ver produto
           </Btn>
-          {actionsMode === "full" && (
-            <Btn
-              variant={isInQuote ? "secondary" : "primary"}
-              size="sm"
-              onClick={() => onAddToQuote(product)}
-              className="flex-1"
-            >
-              {isInQuote ? <><Check size={14} />Adicionado</> : <><Plus size={14} />Orçamento</>}
-            </Btn>
-          )}
         </div>
-        {actionsMode === "full" && (
+        {showCompare && (
           <button
             onClick={() => onToggleCompare(product.id)}
             className={cn("text-xs underline text-center transition-colors", isComparing ? "text-primary font-medium" : "text-muted-foreground hover:text-foreground")}

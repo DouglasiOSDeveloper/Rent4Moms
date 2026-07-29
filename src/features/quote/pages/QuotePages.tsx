@@ -67,6 +67,7 @@ export function QuotePage({ navigate, deliverySettings }: {
     updateAddress,
     updateShippingQuote,
     updateCustomerData,
+    updateContractData,
     updateAdditionalInfo,
     updateConsents,
     submitQuote,
@@ -86,6 +87,13 @@ export function QuotePage({ navigate, deliverySettings }: {
     () => calculateQuotePriceSummary(draft.items.map((item) => item.priceSnapshot), shippingCents),
     [draft.items, shippingCents],
   );
+  const financialBreakdown = useMemo(() => draft.items.reduce((summary, item) => ({
+    baseSubtotalCents: summary.baseSubtotalCents + item.priceSnapshot.baseSubtotalCents,
+    accessoriesSubtotalCents: summary.accessoriesSubtotalCents + item.priceSnapshot.componentsSubtotalCents,
+  }), {
+    baseSubtotalCents: 0,
+    accessoriesSubtotalCents: 0,
+  }), [draft.items]);
   const minimumStartDate = getTomorrowIsoDate(deliverySettings.timeZone);
 
   const clearErrors = useCallback((...keys: string[]) => {
@@ -106,6 +114,14 @@ export function QuotePage({ navigate, deliverySettings }: {
       return () => { active = false; };
     }
     if (!isCompleteShippingAddress(draft.address)) {
+      setShippingPending(false);
+      setShippingMessage("");
+      return () => { active = false; };
+    }
+    if (
+      draft.shippingQuote.status === "calculated"
+      && draft.shippingQuote.cep === draft.address.cep
+    ) {
       setShippingPending(false);
       setShippingMessage("");
       return () => { active = false; };
@@ -136,6 +152,8 @@ export function QuotePage({ navigate, deliverySettings }: {
     draft.address.district,
     draft.address.city,
     draft.address.state,
+    draft.shippingQuote.status,
+    draft.shippingQuote.cep,
     updateShippingQuote,
   ]);
 
@@ -271,6 +289,52 @@ export function QuotePage({ navigate, deliverySettings }: {
             <p className="text-xs text-muted-foreground mt-3">A primeira data disponível é amanhã. As escolhas permanecem salvas neste dispositivo.</p>
           </div>
 
+          <div className="mb-6 rounded-2xl border border-border bg-card p-5" aria-live="polite">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+              <div>
+                <p className="font-semibold text-foreground">Resumo financeiro atualizado</p>
+                <p className="text-xs text-muted-foreground mt-1">Os valores mudam automaticamente conforme o período, a composição e a entrega.</p>
+              </div>
+              {commonPeriod && commonStartDate && (
+                <span className="rounded-full border border-border bg-secondary px-3 py-1 text-xs text-muted-foreground">
+                  Devolução em {formatDateBR(addDays(commonStartDate, commonPeriod))}
+                </span>
+              )}
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between gap-4 text-muted-foreground">
+                <span>Produto-base</span>
+                <span className="whitespace-nowrap text-foreground">{formatMoneyFromCents(financialBreakdown.baseSubtotalCents)}</span>
+              </div>
+              <div className="flex justify-between gap-4 text-muted-foreground">
+                <span>Acessórios</span>
+                <span className="whitespace-nowrap text-foreground">{formatMoneyFromCents(financialBreakdown.accessoriesSubtotalCents)}</span>
+              </div>
+              {total.discountCents > 0 && (
+                <div className="flex justify-between gap-4 text-green-700">
+                  <span>Benefícios do período</span>
+                  <span className="whitespace-nowrap">− {formatMoneyFromCents(total.discountCents)}</span>
+                </div>
+              )}
+              <div className="flex justify-between gap-4 text-muted-foreground">
+                <span>Frete</span>
+                <span className="whitespace-nowrap text-foreground">
+                  {draft.fulfillment !== "delivery"
+                    ? formatMoneyFromCents(0)
+                    : shippingPending
+                      ? "Calculando..."
+                      : draft.shippingQuote.status === "calculated"
+                        ? formatMoneyFromCents(total.shippingCents)
+                        : "A calcular"}
+                </span>
+              </div>
+              <div className="border-t border-border pt-3 mt-3 flex justify-between gap-4 font-semibold">
+                <span className="text-foreground">Total estimado</span>
+                <span className="whitespace-nowrap text-lg text-primary">{formatMoneyFromCents(total.totalCents)}</span>
+              </div>
+            </div>
+          </div>
+
           <div className="flex gap-4 mb-6 flex-wrap">
             {([
               ["delivery", "Entrega no endereço", Truck],
@@ -336,13 +400,26 @@ export function QuotePage({ navigate, deliverySettings }: {
 
       {step === 3 && (
         <div>
-          <h2 className="font-semibold text-foreground text-xl mb-6">Informações adicionais</h2>
-          <div className="flex flex-col gap-4">
-            <Select label="Motivo do aluguel" options={["Selecione...", "Uso temporário", "Testar antes de comprar", "Viagem", "Visita de familiar", "Recém-nascido em casa", "Outro"]} value={draft.additionalInfo.reason} onChange={(reason) => updateAdditionalInfo({ reason })} />
-            <Select label="Como conheceu a Rent4Moms?" options={["Selecione...", "Instagram", "Indicação de amiga(o)", "Pesquisa no Google", "Grupo de mães", "Outro"]} value={draft.additionalInfo.referralSource} onChange={(referralSource) => updateAdditionalInfo({ referralSource })} />
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="quote-notes" className="text-sm font-medium text-foreground">Observações adicionais</label>
-              <textarea id="quote-notes" value={draft.additionalInfo.notes} onChange={(event) => updateAdditionalInfo({ notes: event.target.value })} placeholder="Alguma informação relevante para a equipe..." rows={4} className="w-full rounded-xl border border-border bg-input-background px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+          <h2 className="font-semibold text-foreground text-xl mb-2">Informações para o contrato</h2>
+          <p className="text-sm text-muted-foreground mb-6">Estes dados serão usados para preencher o PDF do contrato. Campos não informados permanecerão identificados como “Não informado”.</p>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Input label="Data de nascimento do locatário" type="date" value={draft.contractData.customerBirthDate} onChange={(customerBirthDate) => updateContractData({ customerBirthDate })} />
+            <Input label="Nacionalidade" placeholder="Ex.: Brasileira" value={draft.contractData.nationality} onChange={(nationality) => updateContractData({ nationality })} />
+            <Select label="Estado civil" options={["Selecione...", "Solteiro(a)", "Casado(a)", "União estável", "Divorciado(a)", "Viúvo(a)", "Outro"]} value={draft.contractData.maritalStatus || "Selecione..."} onChange={(maritalStatus) => updateContractData({ maritalStatus: maritalStatus === "Selecione..." ? "" : maritalStatus })} />
+            <Input label="Profissão" placeholder="Sua profissão" value={draft.contractData.occupation} onChange={(occupation) => updateContractData({ occupation })} />
+            <Input label="Nome do bebê" placeholder="Nome completo" value={draft.contractData.babyName} onChange={(babyName) => updateContractData({ babyName })} />
+            <Select label="Sexo do bebê" options={["Selecione...", "Feminino", "Masculino", "Prefiro não informar"]} value={draft.contractData.babySex || "Selecione..."} onChange={(babySex) => updateContractData({ babySex: babySex === "Selecione..." ? "" : babySex })} />
+            <Input label="Data de nascimento do bebê" type="date" value={draft.contractData.babyBirthDate} onChange={(babyBirthDate) => updateContractData({ babyBirthDate })} />
+          </div>
+          <div className="mt-7 pt-6 border-t border-border">
+            <h3 className="font-medium text-foreground mb-4">Informações adicionais</h3>
+            <div className="flex flex-col gap-4">
+              <Select label="Motivo do aluguel" options={["Selecione...", "Uso temporário", "Testar antes de comprar", "Viagem", "Visita de familiar", "Recém-nascido em casa", "Outro"]} value={draft.additionalInfo.reason} onChange={(reason) => updateAdditionalInfo({ reason })} />
+              <Select label="Como conheceu a Rent4Moms?" options={["Selecione...", "Instagram", "Indicação de amiga(o)", "Pesquisa no Google", "Grupo de mães", "Outro"]} value={draft.additionalInfo.referralSource} onChange={(referralSource) => updateAdditionalInfo({ referralSource })} />
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="quote-notes" className="text-sm font-medium text-foreground">Observações adicionais</label>
+                <textarea id="quote-notes" value={draft.additionalInfo.notes} onChange={(event) => updateAdditionalInfo({ notes: event.target.value })} placeholder="Alguma informação relevante para a equipe..." rows={4} className="w-full rounded-xl border border-border bg-input-background px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+              </div>
             </div>
           </div>
         </div>
@@ -443,6 +520,9 @@ export function QuoteSuccessPage({ navigate }: { navigate: NavigateToPage }) {
         {lastSubmission.holdExpiresAt && <p className="text-sm text-foreground mb-2">As unidades selecionadas estão bloqueadas até <strong>{new Date(lastSubmission.holdExpiresAt).toLocaleString("pt-BR")}</strong>, enquanto a equipe analisa o pedido.</p>}
         {lastSubmission.allocations && lastSubmission.allocations.length > 0 && <p className="text-xs text-muted-foreground mb-2">{lastSubmission.allocations.length} componente(s) físico(s) foram separados temporariamente.</p>}
         <p className="text-sm text-muted-foreground">A reserva só é confirmada após a verificação da equipe. Pedidos cancelados ou expirados liberam automaticamente as unidades.</p>
+        {lastSubmission.documentDelivery?.status === "sent" && <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><strong>Documentos enviados.</strong> O contrato e as instruções de pagamento foram encaminhados para {lastSubmission.documentDelivery.recipientEmail}. Envie o contrato assinado e o comprovante de pagamento respondendo ao e-mail ou pelo WhatsApp.</div>}
+        {lastSubmission.documentDelivery?.status === "failed" && <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"><strong>Pedido criado, mas o e-mail não foi concluído.</strong> A equipe poderá reenviar os documentos pelo painel sem criar outro orçamento.</div>}
+        {lastSubmission.documentDelivery?.status === "not_configured" && <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Os documentos foram gerados, mas o canal automático de e-mail ainda não está configurado. A equipe poderá encaminhá-los manualmente.</div>}
       </div>
       <div className="flex flex-wrap gap-3 justify-center">
         <Btn variant="primary" onClick={() => auth === "client" ? navigate("account-quotes") : navigate("login", lastSubmission.code ? { pedido: lastSubmission.code } : undefined)}>Acompanhar solicitação</Btn>

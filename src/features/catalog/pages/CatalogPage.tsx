@@ -1,41 +1,31 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Archive, Filter, List, Search, X } from "lucide-react";
 import { useSearchParams } from "react-router";
 import { ErrorState, EmptyState, LoadingState } from "../../../components/states/DataState";
 import { ProductCard } from "../../../components/prototype/ProductCard";
 import { getCategoryNames } from "../../../domain/catalog/selectors";
-import type { Page, Product } from "../../../domain/shared/types";
+import type { Page } from "../../../domain/shared/types";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
 
-export function CatalogPage({ navigate, onAddToQuote, quoteItemIds }: {
+export function CatalogPage({ navigate }: {
   navigate: (p: Page, params?: Record<string, string>) => void;
-  onAddToQuote: (p: Product) => void;
-  quoteItemIds: string[];
 }) {
   const { products, categories, publicCategories, syncStatus, refreshCatalog } = useCatalog();
   const [searchParams, setSearchParams] = useSearchParams();
   const [compareItems, setCompareItems] = useState<string[]>([]);
-  const [search, setSearch] = useState(searchParams.get("busca") ?? "");
+  const search = searchParams.get("busca") ?? "";
+  const filterCat = searchParams.getAll("category").filter(Boolean);
   const [sortBy, setSortBy] = useState("Mais relevantes");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [filterCat, setFilterCat] = useState<string[]>(() => {
-    const categoryId = searchParams.get("category");
-    return categoryId ? [categoryId] : [];
-  });
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  useEffect(() => {
-    const categoryId = searchParams.get("category");
-    if (categoryId && !filterCat.includes(categoryId)) setFilterCat([categoryId]);
-  }, [searchParams, filterCat]);
-
-  useEffect(() => {
+  const updateCatalogParams = (nextSearch: string, nextCategories: string[]) => {
     const next = new URLSearchParams();
-    if (search) next.set("busca", search);
-    if (filterCat.length === 1) next.set("category", filterCat[0]);
+    if (nextSearch.trim()) next.set("busca", nextSearch);
+    nextCategories.forEach((categoryId) => next.append("category", categoryId));
     setSearchParams(next, { replace: true });
-  }, [search, filterCat, setSearchParams]);
+  };
 
   const filtered = useMemo(() => {
     let result = [...products];
@@ -56,14 +46,14 @@ export function CatalogPage({ navigate, onAddToQuote, quoteItemIds }: {
   }, [products, categories, search, filterCat, filterStatus, sortBy]);
 
   const toggleCat = (categoryId: string) => {
-    setFilterCat((current) => current.includes(categoryId)
-      ? current.filter((id) => id !== categoryId)
-      : [...current, categoryId]);
+    const nextCategories = filterCat.includes(categoryId)
+      ? filterCat.filter((id) => id !== categoryId)
+      : [...filterCat, categoryId];
+    updateCatalogParams(search, nextCategories);
   };
 
   const clearFilters = () => {
-    setSearch("");
-    setFilterCat([]);
+    setSearchParams(new URLSearchParams(), { replace: true });
     setFilterStatus([]);
   };
 
@@ -114,8 +104,6 @@ export function CatalogPage({ navigate, onAddToQuote, quoteItemIds }: {
             product={product}
             categoryNames={getCategoryNames(product, publicCategories)}
             navigate={navigate}
-            onAddToQuote={onAddToQuote}
-            isInQuote={quoteItemIds.includes(product.id)}
             isComparing={compareItems.includes(product.id)}
             onToggleCompare={(id) => setCompareItems((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])}
           />
@@ -134,7 +122,7 @@ export function CatalogPage({ navigate, onAddToQuote, quoteItemIds }: {
       <div className="flex gap-3 mb-6 flex-wrap">
         <div className="relative flex-1 min-w-64">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar produtos ou categorias..." disabled={products.length === 0} className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-input-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60" />
+          <input value={search} onChange={(event) => updateCatalogParams(event.target.value, filterCat)} placeholder="Buscar produtos ou categorias..." disabled={products.length === 0} className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-input-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60" />
         </div>
         <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} disabled={products.length === 0} className="px-4 py-2.5 rounded-xl border border-border bg-input-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60">
           {["Mais relevantes", "Menor preço estimado", "Maior preço estimado", "Melhor avaliados", "Mais procurados"].map((option) => <option key={option}>{option}</option>)}

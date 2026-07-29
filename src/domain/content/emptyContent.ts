@@ -20,6 +20,7 @@ export function createEmptySiteSettings(): SiteSettingsDocument {
       showAddress: false,
     },
     whatsapp: { defaultMessage: "" },
+    institutionalImage: null,
     updatedAt: new Date(0).toISOString(),
   };
 }

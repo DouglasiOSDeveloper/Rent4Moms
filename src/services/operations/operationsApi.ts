@@ -49,6 +49,10 @@ export function normalizeOrderOperationDetailImageUrls(
 export async function loadOrderOperation(quoteId: string): Promise<OrderOperationDetail> {
   return normalizeOrderOperationDetailImageUrls(await apiRequest<OrderOperationDetail>(`/admin/operations/orders/${quoteId}`));
 }
+export async function resendQuoteDocuments(quoteId: string): Promise<OrderOperationDetail> {
+  const response = await apiRequest<{ detail: OrderOperationDetail }>(`/admin/operations/orders/${quoteId}/documents/resend`, { method: "POST" });
+  return normalizeOrderOperationDetailImageUrls(response.detail);
+}
 export async function saveManualPayment(quoteId: string, input: {
   status: PaymentStatus; amountCents: number; method: PaymentMethod; receivedAt: string | null; note: string;
 }): Promise<ManualPayment> {

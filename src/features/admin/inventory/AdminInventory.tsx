@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, Boxes, Clock3, Edit, History, PackageCheck, Plus, RefreshCw, Search, ShieldAlert, Trash2, X } from "lucide-react";
+import { useNavigate } from "react-router";
+import { Archive, Boxes, Clock3, Edit, Eye, History, PackageCheck, Plus, RefreshCw, Search, ShieldAlert, Trash2, X } from "lucide-react";
 import { Btn, Input, StatusBadge, cn } from "../../../components/prototype/PrototypeUI";
 import type { InventoryItemType, InventoryOverview, InventoryUnit, InventoryUnitInput, InventoryUnitStatus } from "../../../domain/inventory/types";
 import { createInventoryUnit, expireInventoryHolds, loadInventoryOverview, retireInventoryUnit, updateInventoryUnit } from "../../../services/inventory/inventoryApi";
@@ -12,6 +13,7 @@ const EMPTY: InventoryOverview = { summary: { total: 0, byStatus: {}, byType: {}
 const dateTime = (value: string | null) => value ? new Date(value).toLocaleString("pt-BR") : "—";
 
 export function AdminInventory() {
+  const navigate = useNavigate();
   const { chairModels, covers, reducers, ballSets, refreshCatalog } = useCatalog();
   const [overview, setOverview] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -108,7 +110,7 @@ export function AdminInventory() {
       <div className="p-4 border-t border-border text-sm text-muted-foreground">{filtered.length} unidade{filtered.length!==1?"s":""}</div>
     </div>}
 
-    {tab === "allocations" && <div className="bg-white rounded-xl border border-border overflow-x-auto"><table className="w-full"><thead className="bg-secondary border-b border-border"><tr>{["Pedido","Unidade","Componente","Status","Expira","Liberação"].map((h)=><th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{overview.allocations.map((a)=><tr key={a.id}><td className="px-4 py-3 text-xs font-mono">{a.quoteId.slice(0,8)}…</td><td className="px-4 py-3 text-xs font-mono">{a.unitCode}</td><td className="px-4 py-3 text-sm text-muted-foreground">{TYPE_LABELS[a.itemType]}</td><td className="px-4 py-3"><StatusBadge status={a.status==='active'?"Ativo":a.status==='expired'?"Expirado":"Concluído"}/></td><td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{dateTime(a.expiresAt)}</td><td className="px-4 py-3 text-xs text-muted-foreground">{a.releaseReason??"—"}</td></tr>)}</tbody></table></div>}
+    {tab === "allocations" && <div className="bg-white rounded-xl border border-border overflow-x-auto"><table className="w-full"><thead className="bg-secondary border-b border-border"><tr>{["Pedido","Unidade","Componente","Status","Expira","Liberação",""].map((h)=><th key={h} className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase whitespace-nowrap">{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{overview.allocations.map((a)=><tr key={a.id} className="hover:bg-secondary/50"><td className="px-4 py-3 text-xs font-mono">{a.quoteId.slice(0,8)}…</td><td className="px-4 py-3 text-xs font-mono">{a.unitCode}</td><td className="px-4 py-3 text-sm text-muted-foreground">{TYPE_LABELS[a.itemType]}</td><td className="px-4 py-3"><StatusBadge status={a.status==='active'?"Ativo":a.status==='expired'?"Expirado":"Concluído"}/></td><td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{dateTime(a.expiresAt)}</td><td className="px-4 py-3 text-xs text-muted-foreground">{a.releaseReason??"—"}</td><td className="px-4 py-3"><button type="button" title="Abrir pedido" aria-label={`Abrir pedido ${a.quoteId}`} onClick={()=>navigate(`/admin/orcamentos/${a.quoteId}`)} className="inline-flex items-center justify-center rounded-lg p-2 text-primary hover:bg-primary/5"><Eye size={15}/></button></td></tr>)}{overview.allocations.length===0&&<tr><td colSpan={7} className="p-10 text-center text-muted-foreground">Nenhuma alocação encontrada.</td></tr>}</tbody></table></div>}
     {tab === "movements" && <div className="bg-white rounded-xl border border-border">
       <div className="p-4 border-b border-border flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-64"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/><input value={movementSearch} onChange={(event)=>setMovementSearch(event.target.value)} placeholder="Código, item, motivo, status ou pedido..." className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-input-background text-sm"/></div>

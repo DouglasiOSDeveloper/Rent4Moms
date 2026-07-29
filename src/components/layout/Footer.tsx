@@ -8,6 +8,22 @@ import { useSiteContent } from "../../stores/content/SiteContentProvider";
 export function Footer({ navigate }: { navigate: (page: Page) => void }) {
   const { siteSettings, legalPages } = useSiteContent();
   const whatsappUrl = buildWhatsAppUrl(siteSettings.contact.whatsapp, siteSettings.whatsapp.defaultMessage);
+  const legalOrder = [
+    "contrato-de-locacao",
+    "entrega-e-retirada",
+    "politica-de-cancelamento",
+    "politica-de-privacidade",
+    "preferencias-de-cookies",
+    "termos-de-uso",
+  ];
+  const orderedLegalPages = [...legalPages].sort((left, right) => {
+    const leftIndex = legalOrder.indexOf(left.slug);
+    const rightIndex = legalOrder.indexOf(right.slug);
+    if (leftIndex === -1 && rightIndex === -1) return left.title.localeCompare(right.title, "pt-BR");
+    if (leftIndex === -1) return 1;
+    if (rightIndex === -1) return -1;
+    return leftIndex - rightIndex;
+  });
   const socialLinks = [
     { key: "instagram", label: "Instagram", url: siteSettings.socialLinks.instagram, icon: <Instagram size={16} /> },
     { key: "facebook", label: "Facebook", url: siteSettings.socialLinks.facebook, icon: <Globe size={16} /> },
@@ -78,10 +94,10 @@ export function Footer({ navigate }: { navigate: (page: Page) => void }) {
           <div>
             <p className="font-semibold text-white mb-4">Legal</p>
             <div className="flex flex-col gap-2.5">
-              {legalPages.map((page) => (
+              {orderedLegalPages.map((page) => (
                 <a key={page.slug} href={legalPagePath(page.slug)} className="text-sm text-[#C4AFA6] hover:text-white transition-colors">{page.title}</a>
               ))}
-              {legalPages.length === 0 && <span className="text-sm text-[#8A7B72]">Conteúdos legais em preparação.</span>}
+              {orderedLegalPages.length === 0 && <span className="text-sm text-[#8A7B72]">Conteúdos legais em preparação.</span>}
             </div>
             {siteSettings.footer.copyrightText && <p className="mt-6 text-xs text-[#8A7B72]">{replaceYearToken(siteSettings.footer.copyrightText)}</p>}
           </div>

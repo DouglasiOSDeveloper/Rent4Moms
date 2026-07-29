@@ -5,6 +5,7 @@ import { Btn, cn } from "../../../components/prototype/PrototypeUI";
 import { buildWhatsAppUrl, hasConfiguredValue } from "../../../lib/contact";
 import { useSiteContent } from "../../../stores/content/SiteContentProvider";
 import { EmptyState } from "../../../components/states/DataState";
+import { resolveApiResourceUrl } from "../../../services/api/apiClient";
 
 export function HowItWorksPage({ navigate }: { navigate: (p: Page) => void }) {
   return (
@@ -66,6 +67,9 @@ export function HygienePage({ navigate }: { navigate: (p: Page) => void }) {
 
 export function AboutPage({ navigate }: { navigate: (page: Page) => void }) {
   const { siteSettings } = useSiteContent();
+  const institutionalImageUrl = siteSettings.institutionalImage
+    ? resolveApiResourceUrl(`/api/v1/media/assets/${siteSettings.institutionalImage.assetId}/content`)
+    : "";
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <h1 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-4xl text-foreground mb-6">Sobre a {siteSettings.brand.name || "Rent4Moms"}</h1>
@@ -78,7 +82,15 @@ export function AboutPage({ navigate }: { navigate: (page: Page) => void }) {
             <Btn variant="outline" onClick={() => navigate("contact")}>Fale conosco</Btn>
           </div>
         </div>
-        <EmptyState title="Imagem institucional não cadastrada" description="A mídia oficial será exibida após o upload no painel administrativo." />
+        {institutionalImageUrl ? (
+          <img
+            src={institutionalImageUrl}
+            alt={siteSettings.institutionalImage?.alt || "Imagem institucional da Rent4Moms"}
+            className="w-full min-h-72 max-h-[420px] rounded-2xl border border-border object-cover shadow-sm"
+          />
+        ) : (
+          <EmptyState title="Imagem institucional não cadastrada" description="A mídia oficial será exibida após o upload no painel administrativo." />
+        )}
       </div>
       <div className="grid sm:grid-cols-3 gap-6">
         {[
