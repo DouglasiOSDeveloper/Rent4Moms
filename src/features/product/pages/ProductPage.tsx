@@ -11,12 +11,12 @@ import {
   Plus,
   Shield,
   ShoppingBag,
-  Star,
   Truck,
 } from "lucide-react";
 import { AddressFields } from "../../../components/forms/AddressFields";
 import { DeliverySlotSelect } from "../../../components/forms/DeliverySlotSelect";
 import { EmptyState, ErrorState, LoadingState } from "../../../components/states/DataState";
+import { RatingStars } from "../../../components/reviews/RatingStars";
 import { ProductCard } from "../../../components/prototype/ProductCard";
 import { AvailabilityBadge, Btn, Input, cn } from "../../../components/prototype/PrototypeUI";
 import { getAngleLabel, resolveAssemblyImageUrl } from "../../../domain/catalog/assemblyImages";
@@ -47,7 +47,7 @@ import { formatMoneyFromCents } from "../../../lib/money";
 import { buildWhatsAppUrl } from "../../../lib/contact";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
 import { useSiteContent } from "../../../stores/content/SiteContentProvider";
-import type { ProductReview, ProductReviewsResponse } from "../../../domain/customerExperience/types";
+import type { ProductReviewsResponse, PublicProductReview } from "../../../domain/customerExperience/types";
 import { listPublishedProductReviews } from "../../../services/customerExperience/customerExperienceApi";
 import { estimateRemotePricing } from "../../../services/pricing/pricingApi";
 import { estimateRemoteShipping } from "../../../services/shipping/shippingApi";
@@ -72,8 +72,8 @@ interface DisplayGalleryImage {
   source: "variant" | "model" | "product" | "fallback";
 }
 
-function ProductReviewsPanel({ rating, reviewCount, reviews, loading }: { rating: number; reviewCount: number; reviews: ProductReview[]; loading: boolean }) {
-  return <div className="max-w-2xl"><div className="flex items-center gap-6 mb-8 p-6 bg-secondary rounded-2xl border border-border"><div className="text-center"><p className="text-5xl font-bold text-foreground">{rating || "—"}</p><div className="flex gap-0.5 mt-1 justify-center text-amber-400">{[...Array(5)].map((_, index) => <Star key={index} size={14} fill={index < Math.floor(rating) ? "currentColor" : "none"} />)}</div><p className="text-xs text-muted-foreground mt-1">{reviewCount} avaliações</p></div></div>{loading ? <p className="text-sm text-muted-foreground">Carregando avaliações...</p> : reviews.length ? <div className="flex flex-col gap-4">{reviews.map((review) => <div key={review.id} className="bg-card rounded-xl border border-border p-4"><div className="flex gap-0.5 mb-2 text-amber-400">{[...Array(5)].map((_, star) => <Star key={star} size={12} fill={star < review.rating ? "currentColor" : "none"} />)}</div><p className="text-sm text-muted-foreground mb-2">“{review.comment}”</p><p className="text-xs font-medium text-foreground">{review.customerDisplayName} · {new Date(review.createdAt).toLocaleDateString("pt-BR")}</p></div>)}</div> : <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Ainda não há avaliações reais para este produto.</div>}</div>;
+function ProductReviewsPanel({ rating, reviewCount, reviews, loading }: { rating: number; reviewCount: number; reviews: PublicProductReview[]; loading: boolean }) {
+  return <div className="max-w-2xl"><div className="flex items-center gap-6 mb-8 p-6 bg-secondary rounded-2xl border border-border"><div className="text-center"><p className="text-5xl font-bold text-foreground">{rating || "—"}</p><div className="mt-1 flex justify-center"><RatingStars rating={rating} size={14} /></div><p className="text-xs text-muted-foreground mt-1">{reviewCount} avaliações</p></div></div>{loading ? <p className="text-sm text-muted-foreground">Carregando avaliações...</p> : reviews.length ? <div className="flex flex-col gap-4">{reviews.map((review) => <div key={review.id} className="bg-card rounded-xl border border-border p-4"><RatingStars rating={review.rating} size={12} className="mb-2" /><p className="text-sm text-muted-foreground mb-2">“{review.comment}”</p><p className="text-xs font-medium text-foreground">{review.customerDisplayName} · {new Date(review.reviewedAt ?? review.createdAt).toLocaleDateString("pt-BR")}</p><p className="mt-1 text-[11px] text-muted-foreground">{review.source === "external_testimonial" ? "Depoimento externo informado pela equipe" : "Avaliação de cliente vinculada a uma locação"}</p></div>)}</div> : <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Ainda não há avaliações publicadas para este produto.</div>}</div>;
 }
 
 interface ProductPageProps {
@@ -570,9 +570,7 @@ function ProductPageContent({
             <h1 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-3xl text-foreground mb-1">{product.name}</h1>
             <p className="text-muted-foreground">{product.brand} · {product.model}</p>
             <div className="flex items-center gap-2 mt-2">
-              <div className="flex items-center gap-1 text-amber-400">
-                {[...Array(5)].map((_, index) => <Star key={index} size={14} fill={index < Math.floor(displayRating) ? "currentColor" : "none"} />)}
-              </div>
+<RatingStars rating={displayRating} size={14} />
               <span className="text-sm text-muted-foreground">{displayRating} ({displayReviewCount} avaliações)</span>
             </div>
           </div>

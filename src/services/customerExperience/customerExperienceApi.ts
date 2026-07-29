@@ -1,5 +1,5 @@
 import type {
-  AccountOrderDetail, CustomerExperienceAdminQueue, ProductReview, ProductReviewsResponse,
+  AccountOrderDetail, CustomerExperienceAdminQueue, ManualReviewInput, ProductReview, ProductReviewsResponse, PublicProductReview,
   RenewalRequest, ReviewStatus, SupportRequest, SupportStatus,
 } from "../../domain/customerExperience/types";
 import { apiRequest, resolveApiResourceUrl } from "../api/apiClient";
@@ -46,8 +46,8 @@ export async function submitProductReview(quoteId: string, input: { quoteItemInd
 export async function createSupportRequest(quoteId: string, input: { subject: string; message: string }): Promise<SupportRequest> {
   return (await apiRequest<{ supportRequest: SupportRequest }>(`/account/orders/${quoteId}/support`, { method: "POST", body: JSON.stringify(input) })).supportRequest;
 }
-export async function listFeaturedReviews(): Promise<ProductReview[]> {
-  const response = await apiRequest<{ reviews?: ProductReview[] }>("/reviews/featured");
+export async function listFeaturedReviews(): Promise<PublicProductReview[]> {
+  const response = await apiRequest<{ reviews?: PublicProductReview[] }>("/reviews/featured");
   return Array.isArray(response.reviews) ? response.reviews : [];
 }
 
@@ -70,6 +70,15 @@ export async function loadCustomerExperienceAdminQueue(): Promise<CustomerExperi
 }
 export async function decideRenewal(id: string, status: "approved" | "rejected" | "cancelled", adminNote = ""): Promise<RenewalRequest> {
   return (await apiRequest<{ renewal: RenewalRequest }>(`/admin/customer-experience/renewals/${id}`, { method: "PATCH", body: JSON.stringify({ status, adminNote }) })).renewal;
+}
+export async function createManualReview(input: ManualReviewInput): Promise<ProductReview> {
+  return (await apiRequest<{ review: ProductReview }>("/admin/customer-experience/reviews", { method: "POST", body: JSON.stringify(input) })).review;
+}
+export async function updateManualReview(id: string, input: ManualReviewInput): Promise<ProductReview> {
+  return (await apiRequest<{ review: ProductReview }>(`/admin/customer-experience/reviews/${id}`, { method: "PUT", body: JSON.stringify(input) })).review;
+}
+export async function deleteManualReview(id: string): Promise<void> {
+  await apiRequest<void>(`/admin/customer-experience/reviews/${id}`, { method: "DELETE" });
 }
 export async function moderateReview(id: string, status: ReviewStatus): Promise<ProductReview> {
   return (await apiRequest<{ review: ProductReview }>(`/admin/customer-experience/reviews/${id}`, { method: "PATCH", body: JSON.stringify({ status }) })).review;

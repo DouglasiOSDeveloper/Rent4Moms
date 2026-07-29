@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createSupportRequest, listPublishedProductReviews, loadAccountOrder, requestRenewal, submitProductReview, updateSupportRequest } from "./customerExperienceApi";
+import { createManualReview, createSupportRequest, deleteManualReview, listPublishedProductReviews, loadAccountOrder, requestRenewal, submitProductReview, updateManualReview, updateSupportRequest } from "./customerExperienceApi";
 
 describe("customer experience API", () => {
   beforeEach(() => { vi.restoreAllMocks(); });
@@ -64,6 +64,19 @@ describe("customer experience API", () => {
       method: "PATCH",
       body: JSON.stringify({ status: "closed", adminNote: "Resposta registrada" }),
     }));
+  });
+  it("creates, edits and deletes an external testimonial through admin endpoints", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      if (init?.method === "DELETE") return new Response(null, { status: 204 });
+      return new Response(JSON.stringify({ review: { id: "external-1" } }), { status: init?.method === "POST" ? 201 : 200, headers: { "content-type": "application/json" } });
+    });
+    const input = { productId: "p1", customerDisplayName: "Família S.", rating: 4, comment: "Feedback autorizado.", status: "published" as const, isFeatured: true, sourceNote: "WhatsApp com autorização.", reviewedAt: "2030-02-20T12:00:00.000Z" };
+    await createManualReview(input);
+    await updateManualReview("external-1", { ...input, rating: 5 });
+    await deleteManualReview("external-1");
+    expect(fetchMock).toHaveBeenNthCalledWith(1, expect.stringContaining("/admin/customer-experience/reviews"), expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining("/admin/customer-experience/reviews/external-1"), expect.objectContaining({ method: "PUT" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, expect.stringContaining("/admin/customer-experience/reviews/external-1"), expect.objectContaining({ method: "DELETE" }));
   });
   it("loads public product reviews", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ reviews: [], summary: { rating: 0, reviewCount: 0 } }), { status: 200, headers: { "content-type": "application/json" } }));

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Search, Calendar, MessageCircle, Package, Eye, DollarSign, ArrowRight, Shield, Leaf, Award, Info, Home, Droplets, Zap, Star } from "lucide-react";
+import { Search, Calendar, MessageCircle, Package, Eye, DollarSign, ArrowRight, Shield, Leaf, Award, Info, Home, Droplets, Zap } from "lucide-react";
 import type { Page } from "../../../domain/shared/types";
 import { getCategoryNames } from "../../../domain/catalog/selectors";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
@@ -9,7 +9,8 @@ import { useSiteContent } from "../../../stores/content/SiteContentProvider";
 import { EmptyState, ErrorState, LoadingState } from "../../../components/states/DataState";
 import { buildWhatsAppUrl } from "../../../lib/contact";
 import { resolveApiResourceUrl } from "../../../services/api/apiClient";
-import type { ProductReview } from "../../../domain/customerExperience/types";
+import type { PublicProductReview } from "../../../domain/customerExperience/types";
+import { RatingStars } from "../../../components/reviews/RatingStars";
 import { listFeaturedReviews } from "../../../services/customerExperience/customerExperienceApi";
 
 export function HomePage({ navigate }: {
@@ -23,7 +24,7 @@ export function HomePage({ navigate }: {
     : "";
   const featured = products.filter(p => p.featured);
   const publishedFaqs = [...siteSettings.faqs].filter((item) => item.isPublished).sort((left, right) => left.sortOrder - right.sortOrder).slice(0, 4);
-  const [featuredReviews, setFeaturedReviews] = useState<ProductReview[]>([]);
+  const [featuredReviews, setFeaturedReviews] = useState<PublicProductReview[]>([]);
   const [featuredReviewsLoading, setFeaturedReviewsLoading] = useState(true);
 
   useEffect(() => {
@@ -252,7 +253,7 @@ export function HomePage({ navigate }: {
         <div className="text-center mb-10">
           <h2 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-3xl text-foreground mb-2">O que dizem as famílias</h2>
         </div>
-        {featuredReviewsLoading ? <LoadingState title="Carregando avaliações..." compact /> : featuredReviews.length ? <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{featuredReviews.map((review) => <article key={review.id} className="rounded-2xl border border-border bg-card p-6"><div className="mb-3 flex gap-0.5 text-amber-400">{[1, 2, 3, 4, 5].map((value) => <Star key={value} size={15} fill={value <= review.rating ? "currentColor" : "none"} />)}</div><p className="text-sm leading-relaxed text-muted-foreground">“{review.comment}”</p><div className="mt-4 border-t border-border pt-3"><p className="text-sm font-medium text-foreground">{review.customerDisplayName}</p><p className="text-xs text-muted-foreground">{review.productName}</p></div></article>)}</div> : <EmptyState title="Nenhuma avaliação publicada" description="Avaliações reais selecionadas no painel administrativo aparecerão aqui." />}
+        {featuredReviewsLoading ? <LoadingState title="Carregando avaliações..." compact /> : featuredReviews.length ? <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{featuredReviews.map((review) => <article key={review.id} className="rounded-2xl border border-border bg-card p-6"><RatingStars rating={review.rating} size={15} className="mb-3" /><p className="text-sm leading-relaxed text-muted-foreground">“{review.comment}”</p><div className="mt-4 border-t border-border pt-3"><p className="text-sm font-medium text-foreground">{review.customerDisplayName}</p><p className="text-xs text-muted-foreground">{review.productName}</p><p className="mt-1 text-[11px] text-muted-foreground">{review.source === "external_testimonial" ? "Depoimento externo" : "Cliente verificado"}</p></div></article>)}</div> : <EmptyState title="Nenhuma avaliação publicada" description="Avaliações reais selecionadas no painel administrativo aparecerão aqui." />}
       </section>
 
       {/* FAQ */}

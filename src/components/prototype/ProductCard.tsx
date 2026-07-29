@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { Eye, Heart, Star } from "lucide-react";
+import { Eye, Heart } from "lucide-react";
 import type { Page, Product } from "../../domain/shared/types";
 import { AvailabilityBadge, Btn, cn } from "./PrototypeUI";
 import { calculateRentalPrice } from "../../domain/pricing/pricingEngine";
 import { formatMoneyFromCents } from "../../lib/money";
+import { RatingStars } from "../reviews/RatingStars";
 
 export function ProductCard({ product, categoryNames, navigate, isComparing, onToggleCompare, showCompare = true }: {
   product: Product; categoryNames: string[]; navigate: (p: Page, params?: Record<string, string>) => void;
@@ -52,11 +53,9 @@ export function ProductCard({ product, categoryNames, navigate, isComparing, onT
           <span>Idade: {product.ageMin}–{product.ageMax}</span>
           <span>Até {product.weightMax}</span>
         </div>
-        <div className="flex items-center gap-1 text-amber-500">
-          {[...Array(5)].map((_, i) => (
-            <Star key={i} size={12} fill={i < Math.floor(product.rating) ? "currentColor" : "none"} />
-          ))}
-          <span className="text-xs text-muted-foreground ml-1">({product.reviews})</span>
+        <div className="flex items-center gap-1">
+          <RatingStars rating={product.rating} size={12} />
+          <span className="text-xs text-muted-foreground">{product.rating > 0 ? product.rating.toFixed(1).replace(".0", "") : "—"} ({product.reviews})</span>
         </div>
         <div className="mt-auto">
           <p className="text-xs text-muted-foreground">A partir de</p>
