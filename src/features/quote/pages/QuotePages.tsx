@@ -20,6 +20,7 @@ import { MaskedInput } from "../../../components/forms/MaskedInput";
 import { Btn, Input, Select, Stepper, cn } from "../../../components/prototype/PrototypeUI";
 import { formatDeliverySlotLabel } from "../../../domain/delivery/slots";
 import type { DeliverySettings } from "../../../domain/delivery/types";
+import type { PublicLegalPage } from "../../../domain/content/types";
 import { calculateQuotePriceSummary } from "../../../domain/pricing/pricingEngine";
 import type { FulfillmentMethod, QuoteAddress } from "../../../domain/quote/types";
 import { isCompleteShippingAddress } from "../../../domain/shipping/address";
@@ -31,8 +32,29 @@ import { useQuote } from "../../../stores/quote/QuoteProvider";
 import { useSiteContent } from "../../../stores/content/SiteContentProvider";
 import { buildWhatsAppUrl } from "../../../lib/contact";
 import { EmptyState } from "../../../components/states/DataState";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../app/components/ui/dialog";
 import { validateQuoteStep, type QuoteValidationErrors } from "../validation";
 import { estimateRemoteShipping } from "../../../services/shipping/shippingApi";
+
+const CONSENT_DOCUMENTS = {
+  terms: { slug: "termos-de-uso", prefix: "Li e aceito os", label: "Termos de uso" },
+  privacy: { slug: "politica-de-privacidade", prefix: "Li a", label: "Política de privacidade" },
+  rentalConditions: { slug: "contrato-de-locacao", prefix: "Li as", label: "Condições gerais de locação" },
+} as const;
+
+function LegalDocumentContent({ content }: { content: string }) {
+  const blocks = content.split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
+  return <div className="space-y-4 text-sm leading-relaxed text-muted-foreground">{blocks.map((block, index) => {
+    if (block.startsWith("## ")) return <h3 key={`${block}-${index}`} className="pt-2 text-base font-semibold text-foreground">{block.slice(3)}</h3>;
+    if (block.startsWith("# ")) return <h2 key={`${block}-${index}`} className="text-lg font-semibold text-foreground">{block.slice(2)}</h2>;
+    if (block.split("\n").every((line) => line.startsWith("- "))) return <ul key={`${block}-${index}`} className="list-disc space-y-1 pl-5">{block.split("\n").map((line) => <li key={line}>{line.slice(2)}</li>)}</ul>;
+    return <p key={`${block}-${index}`} className="whitespace-pre-line">{block}</p>;
+  })}</div>;
+}
+
+function ConsentDocumentDialog({ page, open, onOpenChange }: { page: PublicLegalPage | null; open: boolean; onOpenChange: (open: boolean) => void }) {
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-3xl"><DialogHeader><DialogTitle>{page?.title ?? "Documento legal"}</DialogTitle><DialogDescription>{page ? `${page.summary} · versão ${page.version}` : "O documento ainda não está disponível para consulta."}</DialogDescription></DialogHeader><div className="max-h-[68vh] overflow-y-auto pr-2">{page ? <LegalDocumentContent content={page.content} /> : <p className="text-sm text-muted-foreground">Atualize a página e tente novamente.</p>}</div></DialogContent></Dialog>;
+}
 
 function ValidationSummary({ errors }: { errors: QuoteValidationErrors }) {
   const messages = [...new Set(Object.values(errors))];
@@ -57,6 +79,8 @@ export function QuotePage({ navigate, deliverySettings }: {
   const [submitError, setSubmitError] = useState("");
   const [shippingPending, setShippingPending] = useState(false);
   const [shippingMessage, setShippingMessage] = useState("");
+  const [activeLegalSlug, setActiveLegalSlug] = useState<string | null>(null);
+  const { legalPages } = useSiteContent();
   const {
     draft,
     removeItem,
@@ -87,6 +111,7 @@ export function QuotePage({ navigate, deliverySettings }: {
     () => calculateQuotePriceSummary(draft.items.map((item) => item.priceSnapshot), shippingCents),
     [draft.items, shippingCents],
   );
+  const activeLegalPage = activeLegalSlug ? legalPages.find((page) => page.slug === activeLegalSlug) ?? null : null;
   const financialBreakdown = useMemo(() => draft.items.reduce((summary, item) => ({
     baseSubtotalCents: summary.baseSubtotalCents + item.priceSnapshot.baseSubtotalCents,
     accessoriesSubtotalCents: summary.accessoriesSubtotalCents + item.priceSnapshot.componentsSubtotalCents,
@@ -201,6 +226,7 @@ export function QuotePage({ navigate, deliverySettings }: {
       <div className="mb-10"><Stepper steps={steps} current={step} /></div>
       <ValidationSummary errors={errors} />
       {submitError && <div role="alert" className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{submitError}</div>}
+      <ConsentDocumentDialog page={activeLegalPage} open={Boolean(activeLegalSlug)} onOpenChange={(open) => { if (!open) setActiveLegalSlug(null); }} />
 
       {step === 0 && (
         <div>
@@ -462,20 +488,23 @@ export function QuotePage({ navigate, deliverySettings }: {
           </div>
 
           <div className="flex flex-col gap-3 mb-6">
-            {([
-              ["terms", "Li e aceito os Termos de uso", true],
-              ["privacy", "Li a Política de privacidade", true],
-              ["rentalConditions", "Li as Condições gerais de locação", true],
-              ["marketing", "Desejo receber novidades e promoções (opcional)", false],
-            ] as const).map(([key, label, required]) => (
+            {(Object.entries(CONSENT_DOCUMENTS) as Array<[keyof typeof CONSENT_DOCUMENTS, (typeof CONSENT_DOCUMENTS)[keyof typeof CONSENT_DOCUMENTS]]>).map(([key, document]) => (
               <div key={key}>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input type="checkbox" checked={draft.consents[key]} onChange={(event) => { updateConsents({ [key]: event.target.checked }); clearErrors(key); }} className="mt-0.5 accent-primary w-4 h-4" />
-                  <span className="text-sm text-foreground">{label}{required && <span className="text-primary ml-0.5">*</span>}</span>
-                </label>
-                {errors[key] && <p className="text-xs text-destructive ml-7 mt-1">{errors[key]}</p>}
+                <div className="flex items-start gap-3">
+                  <input id={`quote-consent-${key}`} type="checkbox" checked={draft.consents[key]} onChange={(event) => { updateConsents({ [key]: event.target.checked }); clearErrors(key); }} className="mt-0.5 h-4 w-4 accent-primary" />
+                  <p className="text-sm text-foreground">
+                    <label htmlFor={`quote-consent-${key}`} className="cursor-pointer">{document.prefix} </label>
+                    <button type="button" onClick={() => setActiveLegalSlug(document.slug)} className="font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary">{document.label}</button>
+                    <span className="ml-0.5 text-primary">*</span>
+                  </p>
+                </div>
+                {errors[key] && <p className="ml-7 mt-1 text-xs text-destructive">{errors[key]}</p>}
               </div>
             ))}
+            <label className="flex cursor-pointer items-start gap-3">
+              <input type="checkbox" checked={draft.consents.marketing} onChange={(event) => updateConsents({ marketing: event.target.checked })} className="mt-0.5 h-4 w-4 accent-primary" />
+              <span className="text-sm text-foreground">Desejo receber novidades e promoções (opcional)</span>
+            </label>
           </div>
         </div>
       )}

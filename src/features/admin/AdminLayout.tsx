@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Star, ChevronRight, ChevronLeft, Calendar, User, Settings, LogOut, Package, FileText, Truck, Wrench, BarChart2, Users, TrendingUp, ArrowRight, Tag, Archive, Layers, Droplets, BookOpen, CircleHelp } from "lucide-react";
+import { MessageCircle, ChevronRight, ChevronLeft, Calendar, User, Settings, LogOut, Package, FileText, Truck, Wrench, BarChart2, Users, TrendingUp, ArrowRight, Tag, Archive, Layers, Droplets, BookOpen, CircleHelp } from "lucide-react";
 import type { Page } from "../../domain/shared/types";
 import { cn } from "../../components/prototype/PrototypeUI";
 import { AdminNotifications } from "./notifications/AdminNotifications";
@@ -36,7 +36,7 @@ export function AdminLayout({ currentPage, navigate, onLogout, children, userNam
     {
       label: "Gestão",
       items: [
-        { page: "admin-customer-experience" as Page, label: "Experiência do cliente", icon: <Star size={16} /> },
+        { page: "admin-customer-experience" as Page, label: "Atendimento", icon: <MessageCircle size={16} /> },
         { page: "admin-reports" as Page, label: "Relatórios", icon: <TrendingUp size={16} /> },
         { page: "admin-users" as Page, label: "Usuários", icon: <User size={16} /> },
         { page: "admin-content" as Page, label: "Conteúdo do site", icon: <BookOpen size={16} /> },

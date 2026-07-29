@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createSupportRequest, listPublishedProductReviews, loadAccountOrder, requestRenewal, submitProductReview } from "./customerExperienceApi";
+import { createSupportRequest, listPublishedProductReviews, loadAccountOrder, requestRenewal, submitProductReview, updateSupportRequest } from "./customerExperienceApi";
 
 describe("customer experience API", () => {
   beforeEach(() => { vi.restoreAllMocks(); });
@@ -56,6 +56,14 @@ describe("customer experience API", () => {
     await submitProductReview("q1", { quoteItemIndex: 0, rating: 5, comment: "Ótimo" });
     await createSupportRequest("q1", { subject: "Ajuda", message: "Preciso de ajuda" });
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+  it("sends the administrative response together with the support status", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ supportRequest: { id: "s1", status: "closed", adminNote: "Resposta registrada" } }), { status: 200, headers: { "content-type": "application/json" } }));
+    await updateSupportRequest("s1", "closed", "Resposta registrada");
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/admin/customer-experience/support/s1"), expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({ status: "closed", adminNote: "Resposta registrada" }),
+    }));
   });
   it("loads public product reviews", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ reviews: [], summary: { rating: 0, reviewCount: 0 } }), { status: 200, headers: { "content-type": "application/json" } }));

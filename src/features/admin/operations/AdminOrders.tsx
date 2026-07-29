@@ -12,6 +12,7 @@ import type {
   AttachmentKind, MaintenanceJob, ManualPayment, OrderOperationDetail, PaymentMethod, PaymentStatus,
 } from "../../../domain/operations/types";
 import { formatMoneyFromCents } from "../../../lib/money";
+import { resolveQuoteItemDisplayImage } from "../../../domain/quote/itemImage";
 import {
   addOrderNote, applyOrderLifecycle, createHygieneJobs, createMaintenanceJobs,
   deleteOperationalAttachment, loadOrderOperation, resendQuoteDocuments, saveManualPayment, uploadOperationalAttachment,
@@ -266,7 +267,7 @@ function UnitJobsPanel({ detail, onUpdated }: { detail: OrderOperationDetail; on
 export function AdminOrderDetail() {
   const { quoteId = "" } = useParams();
   const navigate = useNavigate();
-  const { refreshCatalog } = useCatalog();
+  const { products, assemblyVariants, refreshCatalog } = useCatalog();
   const [detail, setDetail] = useState<OrderOperationDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -297,7 +298,7 @@ export function AdminOrderDetail() {
       <Panel title="Entrega ou retirada" icon={<Truck size={17} className="text-primary"/>}><dl className="space-y-2 text-sm"><div><dt className="text-muted-foreground">Modalidade</dt><dd className="font-medium">{fulfillmentLabel(quote.payload.fulfillment)}</dd></div><div><dt className="text-muted-foreground">Endereço</dt><dd>{addressLine(quote)}</dd></div><div><dt className="text-muted-foreground">Janela</dt><dd>{quote.payload.deliverySlot||"A combinar"}</dd></div></dl></Panel>
       <Panel title="Estoque alocado" icon={<Package size={17} className="text-primary"/>}><div className="space-y-2">{detail.allocations.map((allocation)=><div key={allocation.id} className="flex items-center justify-between gap-2 rounded-lg bg-secondary px-3 py-2"><div><p className="text-xs font-mono font-medium">{allocation.unitCode}</p><p className="text-xs text-muted-foreground">{ROLE_LABELS[allocation.componentRole]}</p></div><StatusBadge status={allocation.status==="active"?"Ativo":allocation.status==="expired"?"Expirado":"Concluído"}/></div>)}</div></Panel>
     </div>
-    <Panel title="Itens contratados" icon={<Package size={17} className="text-primary"/>}><div className="space-y-3">{quote.payload.items.map((item)=><article key={item.id} className="flex flex-col sm:flex-row gap-4 rounded-xl border border-border p-4"><ImageWithFallback src={item.productSnapshot.photo} alt={item.productSnapshot.name} className="h-24 w-24 rounded-lg object-cover bg-secondary"/><div className="flex-1"><p className="font-medium">{item.productSnapshot.name}</p><p className="text-sm text-muted-foreground">{item.productSnapshot.assembly?`${item.productSnapshot.assembly.cover.name}${item.productSnapshot.assembly.reducer?` + ${item.productSnapshot.assembly.reducer.name}`:" + sem redutor"}`:item.productSnapshot.description}</p><div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground"><span>{item.quantity} unidade(s)</span><span>{item.periodDays} dias</span><span>{item.startDate} até {item.endDate}</span></div></div><p className="font-semibold">{formatMoneyFromCents(item.priceSnapshot.totalCents)}</p></article>)}</div></Panel>
+    <Panel title="Itens contratados" icon={<Package size={17} className="text-primary"/>}><div className="space-y-3">{quote.payload.items.map((item)=><article key={item.id} className="flex flex-col sm:flex-row gap-4 rounded-xl border border-border p-4"><ImageWithFallback src={resolveQuoteItemDisplayImage(item, { products, assemblyVariants })} alt={item.productSnapshot.name} className="h-24 w-24 rounded-lg object-contain bg-secondary"/><div className="flex-1"><p className="font-medium">{item.productSnapshot.name}</p><p className="text-sm text-muted-foreground">{item.productSnapshot.assembly?`${item.productSnapshot.assembly.cover.name}${item.productSnapshot.assembly.reducer?` + ${item.productSnapshot.assembly.reducer.name}`:" + sem redutor"}`:item.productSnapshot.description}</p><div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground"><span>{item.quantity} unidade(s)</span><span>{item.periodDays} dias</span><span>{item.startDate} até {item.endDate}</span></div></div><p className="font-semibold">{formatMoneyFromCents(item.priceSnapshot.totalCents)}</p></article>)}</div></Panel>
     <DocumentsPanel detail={detail} onUpdated={applyDetail}/>
     <PaymentPanel detail={detail} onSaved={(payment)=>setDetail({...detail,payment})}/>
     <OperationsPanel detail={detail} onUpdated={applyDetail}/>

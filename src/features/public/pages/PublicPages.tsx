@@ -86,7 +86,7 @@ export function AboutPage({ navigate }: { navigate: (page: Page) => void }) {
           <img
             src={institutionalImageUrl}
             alt={siteSettings.institutionalImage?.alt || "Imagem institucional da Rent4Moms"}
-            className="w-full min-h-72 max-h-[420px] rounded-2xl border border-border object-cover shadow-sm"
+            className="h-72 w-full rounded-2xl border border-border bg-white object-contain shadow-sm lg:h-[360px]"
           />
         ) : (
           <EmptyState title="Imagem institucional não cadastrada" description="A mídia oficial será exibida após o upload no painel administrativo." />
