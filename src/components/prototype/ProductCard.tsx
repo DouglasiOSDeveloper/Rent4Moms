@@ -19,12 +19,14 @@ export function ProductCard({ product, categoryNames, navigate, isComparing, onT
   });
   return (
     <div className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group flex flex-col">
-      <div className="relative overflow-hidden">
-        <img
-          src={product.photo}
-          alt={product.name}
-          className="w-full h-52 object-cover group-hover:scale-105 transition-transform duration-500"
-        />
+      <div className="relative overflow-hidden bg-secondary/40">
+        <div className="flex h-56 items-center justify-center p-3 sm:h-60">
+          <img
+            src={product.photo}
+            alt={product.name}
+            className="max-h-full max-w-full object-contain object-center group-hover:scale-[1.02] transition-transform duration-500"
+          />
+        </div>
         <div className="absolute top-3 left-3 flex gap-1.5 flex-wrap pr-12">
           {(categoryNames.length ? categoryNames : ["Sem categoria"]).slice(0, 2).map((categoryName) => (
             <span key={categoryName} className="text-xs bg-white/90 backdrop-blur-sm text-foreground px-2 py-0.5 rounded-full font-medium border border-white/50">{categoryName}</span>
@@ -79,4 +81,3 @@ export function ProductCard({ product, categoryNames, navigate, isComparing, onT
     </div>
   );
 }
-
