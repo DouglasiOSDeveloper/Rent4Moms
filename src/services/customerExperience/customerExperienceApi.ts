@@ -4,6 +4,17 @@ import type {
 } from "../../domain/customerExperience/types";
 import { apiRequest, resolveApiResourceUrl } from "../api/apiClient";
 
+function reviewDateValue(review: Pick<PublicProductReview, "reviewedAt" | "createdAt">): number {
+  const reviewedAt = Date.parse(review.reviewedAt);
+  if (Number.isFinite(reviewedAt)) return reviewedAt;
+  const createdAt = Date.parse(review.createdAt);
+  return Number.isFinite(createdAt) ? createdAt : 0;
+}
+
+function newestReviewsFirst<T extends Pick<PublicProductReview, "reviewedAt" | "createdAt" | "id">>(reviews: T[]): T[] {
+  return [...reviews].sort((left, right) => reviewDateValue(right) - reviewDateValue(left) || Date.parse(right.createdAt) - Date.parse(left.createdAt) || right.id.localeCompare(left.id));
+}
+
 function normalizeDetail(detail: AccountOrderDetail): AccountOrderDetail {
   return {
     ...detail,
@@ -48,7 +59,7 @@ export async function createSupportRequest(quoteId: string, input: { subject: st
 }
 export async function listFeaturedReviews(): Promise<PublicProductReview[]> {
   const response = await apiRequest<{ reviews?: PublicProductReview[] }>("/reviews/featured");
-  return Array.isArray(response.reviews) ? response.reviews : [];
+  return Array.isArray(response.reviews) ? newestReviewsFirst(response.reviews) : [];
 }
 
 export async function listPublishedProductReviews(productId: string): Promise<ProductReviewsResponse> {
@@ -56,7 +67,7 @@ export async function listPublishedProductReviews(productId: string): Promise<Pr
   const summary = response.summary;
 
   return {
-    reviews: Array.isArray(response.reviews) ? response.reviews : [],
+    reviews: Array.isArray(response.reviews) ? newestReviewsFirst(response.reviews) : [],
     summary: {
       rating: typeof summary?.rating === "number" && Number.isFinite(summary.rating) ? summary.rating : 0,
       reviewCount: typeof summary?.reviewCount === "number" && Number.isFinite(summary.reviewCount)
@@ -66,7 +77,8 @@ export async function listPublishedProductReviews(productId: string): Promise<Pr
   };
 }
 export async function loadCustomerExperienceAdminQueue(): Promise<CustomerExperienceAdminQueue> {
-  return await apiRequest<CustomerExperienceAdminQueue>("/admin/customer-experience");
+  const response = await apiRequest<CustomerExperienceAdminQueue>("/admin/customer-experience");
+  return { ...response, reviews: newestReviewsFirst(response.reviews) };
 }
 export async function decideRenewal(id: string, status: "approved" | "rejected" | "cancelled", adminNote = ""): Promise<RenewalRequest> {
   return (await apiRequest<{ renewal: RenewalRequest }>(`/admin/customer-experience/renewals/${id}`, { method: "PATCH", body: JSON.stringify({ status, adminNote }) })).renewal;

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createManualReview, createSupportRequest, deleteManualReview, listPublishedProductReviews, loadAccountOrder, requestRenewal, submitProductReview, updateManualReview, updateSupportRequest } from "./customerExperienceApi";
+import { createManualReview, createSupportRequest, deleteManualReview, listFeaturedReviews, listPublishedProductReviews, loadAccountOrder, loadCustomerExperienceAdminQueue, requestRenewal, submitProductReview, updateManualReview, updateSupportRequest } from "./customerExperienceApi";
 
 describe("customer experience API", () => {
   beforeEach(() => { vi.restoreAllMocks(); });
@@ -78,8 +78,18 @@ describe("customer experience API", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(2, expect.stringContaining("/admin/customer-experience/reviews/external-1"), expect.objectContaining({ method: "PUT" }));
     expect(fetchMock).toHaveBeenNthCalledWith(3, expect.stringContaining("/admin/customer-experience/reviews/external-1"), expect.objectContaining({ method: "DELETE" }));
   });
-  it("loads public product reviews", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ reviews: [], summary: { rating: 0, reviewCount: 0 } }), { status: 200, headers: { "content-type": "application/json" } }));
-    expect((await listPublishedProductReviews("p1")).summary.reviewCount).toBe(0);
+  it("orders public and administrative reviews by feedback date, newest first", async () => {
+    const older = { id: "older", productId: "p1", productName: "MamaRoo", customerDisplayName: "Família A.", rating: 4, comment: "Anterior", source: "external_testimonial", sourceLabel: "WhatsApp", isFeatured: true, reviewedAt: "2030-01-10T12:00:00.000Z", createdAt: "2030-03-01T12:00:00.000Z" };
+    const newer = { ...older, id: "newer", comment: "Mais recente", reviewedAt: "2030-02-10T12:00:00.000Z", createdAt: "2030-02-11T12:00:00.000Z" };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/admin/customer-experience")) return new Response(JSON.stringify({ renewals: [], reviews: [older, newer], supportRequests: [] }), { status: 200, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ reviews: [older, newer], summary: { rating: 4, reviewCount: 2 } }), { status: 200, headers: { "content-type": "application/json" } });
+    });
+
+    expect((await listPublishedProductReviews("p1")).reviews.map((review) => review.id)).toEqual(["newer", "older"]);
+    expect((await listFeaturedReviews()).map((review) => review.id)).toEqual(["newer", "older"]);
+    expect((await loadCustomerExperienceAdminQueue()).reviews.map((review) => review.id)).toEqual(["newer", "older"]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });
