@@ -8,7 +8,6 @@ import { ProductCard } from "../../../components/prototype/ProductCard";
 import { useSiteContent } from "../../../stores/content/SiteContentProvider";
 import { EmptyState, ErrorState, LoadingState } from "../../../components/states/DataState";
 import { buildWhatsAppUrl } from "../../../lib/contact";
-import { resolveApiResourceUrl } from "../../../services/api/apiClient";
 import type { PublicProductReview } from "../../../domain/customerExperience/types";
 import { RatingStars } from "../../../components/reviews/RatingStars";
 import { externalTestimonialAttribution } from "../../../components/reviews/reviewAttribution";
@@ -20,9 +19,6 @@ export function HomePage({ navigate }: {
   const { products, publicCategories, syncStatus, refreshCatalog } = useCatalog();
   const { siteSettings } = useSiteContent();
   const whatsappUrl = buildWhatsAppUrl(siteSettings.contact.whatsapp, siteSettings.whatsapp.defaultMessage);
-  const institutionalImageUrl = siteSettings.institutionalImage
-    ? resolveApiResourceUrl(`/api/v1/media/assets/${siteSettings.institutionalImage.assetId}/content`)
-    : "";
   const featured = products.filter(p => p.featured);
   const publishedFaqs = [...siteSettings.faqs].filter((item) => item.isPublished).sort((left, right) => left.sortOrder - right.sortOrder).slice(0, 4);
   const [featuredReviews, setFeaturedReviews] = useState<PublicProductReview[]>([]);
@@ -190,35 +186,24 @@ export function HomePage({ navigate }: {
 
       {/* Why rent */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div>
-            <h2 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-3xl text-foreground mb-6">Por que alugar faz sentido</h2>
-            <div className="flex flex-col gap-4">
-              {[
-                { icon: <DollarSign size={18} className="text-primary" />, title: "Economia real", desc: "Equipamentos infantis de qualidade têm alto custo. Alugar pelo período necessário é muito mais acessível." },
-                { icon: <Home size={18} className="text-primary" />, title: "Menos itens em casa", desc: "Equipamentos infantis ocupam espaço. Devolver ao fim do uso mantém sua casa organizada." },
-                { icon: <Award size={18} className="text-primary" />, title: "Produtos de qualidade", desc: "Acesso a modelos premium pelo período exato em que seu bebê precisar." },
-                { icon: <Leaf size={18} className="text-primary" />, title: "Escolha consciente", desc: "Alugar em vez de comprar reduz o desperdício e é uma escolha mais sustentável." },
-              ].map((b, i) => (
-                <div key={i} className="flex gap-4 p-4 bg-secondary rounded-xl border border-border">
-                  <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">{b.icon}</div>
-                  <div>
-                    <p className="font-medium text-foreground">{b.title}</p>
-                    <p className="text-sm text-muted-foreground mt-0.5">{b.desc}</p>
-                  </div>
+        <div className="mx-auto max-w-3xl">
+          <h2 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-3xl text-foreground mb-6">Por que alugar faz sentido</h2>
+          <div className="flex flex-col gap-4">
+            {[
+              { icon: <DollarSign size={18} className="text-primary" />, title: "Economia real", desc: "Equipamentos infantis de qualidade têm alto custo. Alugar pelo período necessário é muito mais acessível." },
+              { icon: <Home size={18} className="text-primary" />, title: "Menos itens em casa", desc: "Equipamentos infantis ocupam espaço. Devolver ao fim do uso mantém sua casa organizada." },
+              { icon: <Award size={18} className="text-primary" />, title: "Produtos de qualidade", desc: "Acesso a modelos premium pelo período exato em que seu bebê precisar." },
+              { icon: <Leaf size={18} className="text-primary" />, title: "Escolha consciente", desc: "Alugar em vez de comprar reduz o desperdício e é uma escolha mais sustentável." },
+            ].map((b, i) => (
+              <div key={i} className="flex gap-4 p-4 bg-secondary rounded-xl border border-border">
+                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">{b.icon}</div>
+                <div>
+                  <p className="font-medium text-foreground">{b.title}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">{b.desc}</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-          {institutionalImageUrl ? (
-            <img
-              src={institutionalImageUrl}
-              alt={siteSettings.institutionalImage?.alt || "Imagem institucional da Rent4Moms"}
-              className="w-full min-h-80 max-h-[460px] rounded-2xl border border-border object-cover shadow-sm"
-            />
-          ) : (
-            <EmptyState title="Imagem institucional não cadastrada" description="A mídia oficial será exibida após o upload no módulo de conteúdo." />
-          )}
         </div>
       </section>
 

@@ -5,7 +5,6 @@ import { Btn, cn } from "../../../components/prototype/PrototypeUI";
 import { buildWhatsAppUrl, hasConfiguredValue } from "../../../lib/contact";
 import { useSiteContent } from "../../../stores/content/SiteContentProvider";
 import { EmptyState } from "../../../components/states/DataState";
-import { resolveApiResourceUrl } from "../../../services/api/apiClient";
 
 export function HowItWorksPage({ navigate }: { navigate: (p: Page) => void }) {
   return (
@@ -67,30 +66,16 @@ export function HygienePage({ navigate }: { navigate: (p: Page) => void }) {
 
 export function AboutPage({ navigate }: { navigate: (page: Page) => void }) {
   const { siteSettings } = useSiteContent();
-  const institutionalImageUrl = siteSettings.institutionalImage
-    ? resolveApiResourceUrl(`/api/v1/media/assets/${siteSettings.institutionalImage.assetId}/content`)
-    : "";
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <h1 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-4xl text-foreground mb-6">Sobre a {siteSettings.brand.name || "Rent4Moms"}</h1>
-      <div className="grid lg:grid-cols-2 gap-10 mb-12">
-        <div>
-          <p className="text-muted-foreground leading-relaxed mb-4">{siteSettings.brand.description}</p>
-          <p className="text-muted-foreground leading-relaxed mb-4">{siteSettings.brand.tagline}</p>
-          <div className="flex flex-wrap gap-3 mt-6">
-            <Btn variant="primary" onClick={() => navigate("catalog")}>Ver produtos</Btn>
-            <Btn variant="outline" onClick={() => navigate("contact")}>Fale conosco</Btn>
-          </div>
+      <div className="mb-12 max-w-3xl">
+        <p className="text-muted-foreground leading-relaxed mb-4">{siteSettings.brand.description}</p>
+        <p className="text-muted-foreground leading-relaxed mb-4">{siteSettings.brand.tagline}</p>
+        <div className="flex flex-wrap gap-3 mt-6">
+          <Btn variant="primary" onClick={() => navigate("catalog")}>Ver produtos</Btn>
+          <Btn variant="outline" onClick={() => navigate("contact")}>Fale conosco</Btn>
         </div>
-        {institutionalImageUrl ? (
-          <img
-            src={institutionalImageUrl}
-            alt={siteSettings.institutionalImage?.alt || "Imagem institucional da Rent4Moms"}
-            className="h-72 w-full rounded-2xl border border-border bg-white object-contain shadow-sm lg:h-[360px]"
-          />
-        ) : (
-          <EmptyState title="Imagem institucional não cadastrada" description="A mídia oficial será exibida após o upload no painel administrativo." />
-        )}
       </div>
       <div className="grid sm:grid-cols-3 gap-6">
         {[

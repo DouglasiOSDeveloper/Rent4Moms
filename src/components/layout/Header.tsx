@@ -12,6 +12,7 @@ import {
 import type { AuthState, Page } from "../../domain/shared/types";
 import { Btn, cn } from "../prototype/PrototypeUI";
 import { useSiteContent } from "../../stores/content/SiteContentProvider";
+import { BrandLogo } from "./BrandLogo";
 
 export function Header({ currentPage, navigate, quoteCount, auth, onLogout }: {
   currentPage: Page; navigate: (p: Page) => void; quoteCount: number;
@@ -32,13 +33,11 @@ export function Header({ currentPage, navigate, quoteCount, auth, onLogout }: {
     <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <button type="button" aria-label="Ir para a página inicial" onClick={() => navigate("home")} className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white text-xs font-bold">R4</span>
-            </div>
-            <span style={{ fontFamily: "'DM Serif Display', serif" }} className="text-lg text-foreground tracking-tight">
-              {siteSettings.brand.name || "Rent4Moms"}
-            </span>
+          <button type="button" aria-label="Ir para a página inicial" onClick={() => navigate("home")} className="flex items-center">
+            <BrandLogo
+              brandName={siteSettings.brand.name || "Rent4Moms"}
+              className="h-10 w-auto max-w-[180px]"
+            />
           </button>
 
           <nav aria-label="Navegação principal" className="hidden lg:flex items-center gap-6">

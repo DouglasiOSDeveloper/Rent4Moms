@@ -4,6 +4,7 @@ import type { Page } from "../../domain/shared/types";
 import { legalPagePath } from "../../domain/content/types";
 import { buildWhatsAppUrl, hasConfiguredValue, replaceYearToken } from "../../lib/contact";
 import { useSiteContent } from "../../stores/content/SiteContentProvider";
+import { BrandLogo } from "./BrandLogo";
 
 export function Footer({ navigate }: { navigate: (page: Page) => void }) {
   const { siteSettings, legalPages } = useSiteContent();
@@ -36,9 +37,11 @@ export function Footer({ navigate }: { navigate: (page: Page) => void }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white text-xs font-bold">R4</span></div>
-              <span style={{ fontFamily: "'DM Serif Display', serif" }} className="text-lg text-white">{siteSettings.brand.name || "Rent4Moms"}</span>
+            <div className="mb-4 inline-flex rounded-xl bg-white px-3 py-2 shadow-sm">
+              <BrandLogo
+                brandName={siteSettings.brand.name || "Rent4Moms"}
+                className="h-10 w-auto max-w-[200px]"
+              />
             </div>
             {siteSettings.brand.description && <p className="text-sm text-[#C4AFA6] leading-relaxed mb-4">{siteSettings.brand.description}</p>}
             <div className="flex flex-wrap gap-3">
