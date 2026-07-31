@@ -461,7 +461,7 @@ function ProductPageContent({
               </div>
 
               <div className="mb-5">
-                <label className="text-sm font-medium text-foreground block mb-2">1. Escolha o pano <span className="text-primary">*</span></label>
+                <label className="text-sm font-medium text-foreground block mb-2">1. Escolha o forro <span className="text-primary">*</span></label>
                 <div className="grid sm:grid-cols-2 gap-2">
                   {compatibleCovers.map((cover) => {
                     const disabled = cover.availableQuantity <= 0;
@@ -618,7 +618,7 @@ function ProductPageContent({
                     <button key={value} type="button" onClick={() => { setPeriod(period === value ? null : value); setProductErrors((current) => ({ ...current, period: "" })); }} className={cn("flex flex-col items-center py-3 px-2 rounded-xl border-2 font-medium text-sm transition-all", period === value ? "border-primary bg-primary/10 text-primary" : "border-border bg-input-background text-foreground hover:border-primary/50")}>
                       <span className="text-lg font-bold">{value}</span><span className="text-xs opacity-70">dias</span>
                       <span className="text-xs mt-0.5 font-normal text-muted-foreground">{formatMoneyFromCents(estimate.totalCents)}</span>
-                      {estimate.benefitType === "discount" && <span className="text-[10px] mt-1 text-green-700">{estimate.discountPercent}% na cadeira + pano</span>}
+                      {estimate.benefitType === "discount" && <span className="text-[10px] mt-1 text-green-700">{estimate.discountPercent}% na cadeira + forro</span>}
                       {estimate.reducerWaiverCents > 0 && <span className="text-[10px] mt-0.5 text-green-700">Redutor grátis</span>}
                       {estimate.benefitType === "fixed_price" && <span className="text-[10px] mt-1 text-green-700">Preço-base especial</span>}
                       {estimate.benefitType === "free_base" && <span className="text-[10px] mt-1 text-green-700">Produto-base gratuito</span>}
@@ -683,7 +683,7 @@ function ProductPageContent({
                 <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Produto-base</span><span className="text-foreground">{priceEstimate ? formatMoneyFromCents(priceEstimate.baseSubtotalCents) : formatMoneyFromCents(0)}</span></div>
                 {priceEstimate && priceEstimate.coverSubtotalCents > 0 && <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Pano</span><span className="text-foreground">{formatMoneyFromCents(priceEstimate.coverSubtotalCents)}</span></div>}
                 {priceEstimate && priceEstimate.reducerSubtotalCents > 0 && <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Redutor</span><span className="text-foreground">{formatMoneyFromCents(priceEstimate.reducerSubtotalCents)}</span></div>}
-                {priceEstimate && priceEstimate.baseDiscountCents > 0 && <div className="flex justify-between text-sm mb-2 text-green-700"><span>Desconto de {priceEstimate.discountPercent}% na cadeira + pano</span><span>− {formatMoneyFromCents(priceEstimate.baseDiscountCents)}</span></div>}
+                {priceEstimate && priceEstimate.baseDiscountCents > 0 && <div className="flex justify-between text-sm mb-2 text-green-700"><span>Desconto de {priceEstimate.discountPercent}% na cadeira + forro</span><span>− {formatMoneyFromCents(priceEstimate.baseDiscountCents)}</span></div>}
                 {priceEstimate && priceEstimate.reducerWaiverCents > 0 && <div className="flex justify-between text-sm mb-2 text-green-700"><span>Redutor grátis em 60/90 dias</span><span>− {formatMoneyFromCents(priceEstimate.reducerWaiverCents)}</span></div>}
                 {priceEstimate && (priceEstimate.freeBaseCents > 0 || priceEstimate.freeComponentsCents > 0) && <div className="flex justify-between text-sm mb-2 text-green-700"><span>{priceEstimate.benefitType === "free_configuration" ? "Gratuidade da configuração" : "Gratuidade do produto-base"}</span><span>− {formatMoneyFromCents(priceEstimate.freeBaseCents + priceEstimate.freeComponentsCents)}</span></div>}
                 {delivery === "delivery" && <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Frete</span><span className="text-foreground">{shippingEstimate ? formatMoneyFromCents(shippingEstimate.amountCents) : shippingPending ? "Calculando..." : "A calcular"}</span></div>}
@@ -702,7 +702,7 @@ function ProductPageContent({
               <Btn variant="primary" fullWidth onClick={addToQuote} disabled={!canAddConfiguredProduct}>
                 {quoteItemIds.includes(product.id) ? <><Check size={16} />Atualizar no orçamento</> : <><ShoppingBag size={16} />Adicionar ao orçamento</>}
               </Btn>
-              {chairModel && !selectedCover && <p className="text-xs text-center text-muted-foreground">Escolha um pano antes de adicionar ao orçamento.</p>}
+              {chairModel && !selectedCover && <p className="text-xs text-center text-muted-foreground">Escolha um forro antes de adicionar ao orçamento.</p>}
               {productWhatsAppUrl && <a href={productWhatsAppUrl} target="_blank" rel="noreferrer"><Btn variant="outline" fullWidth><MessageCircle size={16} />Falar sobre este produto</Btn></a>}
             </div>
           </div>
