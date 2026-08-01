@@ -47,7 +47,7 @@ export function AdminLayout({ currentPage, navigate, onLogout, children, userNam
   ];
 
   return (
-    <div className="flex min-h-screen bg-[#F5F0EB]">
+    <div className="flex min-h-screen bg-secondary">
       {/* Sidebar */}
       <aside className={cn("flex flex-col bg-sidebar transition-all duration-300 shrink-0", collapsed ? "w-14" : "w-60")}>
         <div className="flex items-center gap-2 p-4 border-b border-sidebar-border h-16">

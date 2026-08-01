@@ -25,7 +25,7 @@ export function Btn({
   const base = "inline-flex items-center justify-center gap-2 font-medium rounded-xl transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2";
   const sizes = { sm: "px-3 py-1.5 text-sm", md: "px-5 py-2.5 text-base", lg: "px-7 py-3.5 text-base" };
   const variants = {
-    primary: "bg-primary text-primary-foreground hover:bg-[#B35C41] active:scale-[0.98] shadow-sm",
+    primary: "bg-primary text-primary-foreground hover:bg-[var(--primary-hover)] active:scale-[0.98] shadow-sm",
     secondary: "bg-secondary text-secondary-foreground hover:bg-muted border border-border",
     outline: "border border-border bg-transparent text-foreground hover:bg-secondary",
     ghost: "bg-transparent text-foreground hover:bg-muted",
