@@ -16,7 +16,7 @@ export function HowItWorksPage({ navigate }: { navigate: (p: Page) => void }) {
           { num: "01", title: "Escolha o produto", desc: "Navegue pelo catálogo e filtre por categoria, faixa etária ou período. Você pode comparar até 3 produtos antes de decidir." },
           { num: "02", title: "Informe o período desejado", desc: "Selecione as datas de início e devolução. O sistema calcula uma estimativa de valor. O preço final é confirmado no orçamento." },
           { num: "03", title: "Envie a solicitação", desc: "Preencha seus dados e envie o orçamento. Nenhuma cobrança é feita nesta etapa. Nossa equipe entrará em contato." },
-          { num: "04", title: "Confirme a reserva", desc: "Após a análise, você recebe o orçamento final, assina o contrato e confirma a reserva. A entrega é agendada conforme combinado." },
+          { num: "04", title: "Confirme a reserva", desc: "Após a análise, você recebe o orçamento final e as orientações para confirmar a reserva. A entrega é agendada conforme combinado." },
         ].map((s, i) => (
           <div key={i} className="rounded-2xl border border-border bg-card p-6 sm:p-8">
             <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-4">

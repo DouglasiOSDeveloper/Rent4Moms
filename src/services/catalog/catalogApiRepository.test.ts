@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createEmptyCatalogSnapshot } from "../../domain/catalog/emptyCatalog";
+import { INITIAL_CHAIR_MODELS, INITIAL_COVERS } from "../../test/fixtures/catalogFixture";
 import { DEFAULT_PRODUCT_PERIOD_PRICING } from "../../domain/pricing/types";
 import { apiRequest } from "../api/apiClient";
 import { CatalogApiRepository } from "./catalogApiRepository";
@@ -10,6 +11,27 @@ const requestMock = vi.mocked(apiRequest);
 
 describe("CatalogApiRepository Stage C CRUD", () => {
   beforeEach(() => requestMock.mockReset());
+
+  it("normalizes public availability without exposing exact stock counts", async () => {
+    const catalog = createEmptyCatalogSnapshot();
+    const { availableQuantity: _chairQuantity, ...chairModel } = INITIAL_CHAIR_MODELS[0];
+    const { availableQuantity: _coverQuantity, ...cover } = INITIAL_COVERS[0];
+    requestMock.mockResolvedValue({
+      catalog: {
+        ...catalog,
+        chairModels: [{ ...chairModel, isAvailable: true }],
+        covers: [{ ...cover, isAvailable: false }],
+      },
+    });
+
+    const repository = new CatalogApiRepository();
+    const loaded = await repository.load();
+
+    expect(requestMock).toHaveBeenCalledWith("/catalog");
+    expect(loaded.chairModels[0].availableQuantity).toBe(1);
+    expect(loaded.covers[0].availableQuantity).toBe(0);
+    expect(loaded.chairModels[0]).not.toHaveProperty("isAvailable");
+  });
 
   it("creates products through the normalized entity endpoint", async () => {
     const input = {

@@ -61,7 +61,6 @@ describe("quote factories pricing roles", () => {
         ballSet: { id: "balls-1", code: "b40", name: "Bolinhas", description: "" },
         selectedAngle: "FRT",
         selectedImage: "",
-        availableQuantity: 1,
       },
     });
     const legacyItem = {

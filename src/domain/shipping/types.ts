@@ -26,7 +26,6 @@ export interface ShippingEstimate {
   cep: string;
   provider: string;
   formulaVersion: "distance-fuel-v1";
-  originLabel: string;
   oneWayDistanceKm: number;
   chargedDistanceKm: number;
   durationSeconds: number | null;

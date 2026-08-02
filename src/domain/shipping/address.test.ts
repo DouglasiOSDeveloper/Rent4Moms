@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isCompleteShippingAddress } from "./address";
+import { isCompleteShippingAddress, isDeliveryAddressSupported } from "./address";
 
 describe("isCompleteShippingAddress", () => {
   it("requires a routable full address", () => {
@@ -22,5 +22,10 @@ describe("isCompleteShippingAddress", () => {
       city: "Brasília",
       state: "DF",
     })).toBe(true);
+  });
+
+  it("accepts only DF for delivery", () => {
+    expect(isDeliveryAddressSupported({ state: "df" })).toBe(true);
+    expect(isDeliveryAddressSupported({ state: "BA" })).toBe(false);
   });
 });

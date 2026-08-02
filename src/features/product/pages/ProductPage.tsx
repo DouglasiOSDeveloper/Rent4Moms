@@ -29,7 +29,6 @@ import {
   getChairModelByProductId,
   getCompatibleCovers,
   getCompatibleReducers,
-  getConfigurationAvailableQuantity,
   sumRentalRates,
 } from "../../../domain/catalog/configurator";
 import { getCategoryNames, productsShareCategory } from "../../../domain/catalog/selectors";
@@ -40,7 +39,7 @@ import { calculateRentalPrice, normalizeProductPeriodPricing } from "../../../do
 import type { RentalPriceBreakdown } from "../../../domain/pricing/types";
 import type { AddProductToQuoteOptions, FulfillmentMethod, QuoteAddress, QuoteAssemblySnapshot, QuoteItem } from "../../../domain/quote/types";
 import type { Page, Product } from "../../../domain/shared/types";
-import { isCompleteShippingAddress } from "../../../domain/shipping/address";
+import { isCompleteShippingAddress, isDeliveryAddressSupported } from "../../../domain/shipping/address";
 import type { ShippingEstimate } from "../../../domain/shipping/types";
 import { addDays, formatDateBR, getTomorrowIsoDate, isIsoDateOnOrAfter } from "../../../lib/dates";
 import { maskCep } from "../../../lib/masks";
@@ -164,6 +163,7 @@ function ProductPageContent({
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [officialPriceEstimate, setOfficialPriceEstimate] = useState<RentalPriceBreakdown | null>(null);
   const [pricingPending, setPricingPending] = useState(false);
+  const [pricingMessage, setPricingMessage] = useState("");
   const [shippingEstimate, setShippingEstimate] = useState<ShippingEstimate | null>(null);
   const [shippingPending, setShippingPending] = useState(false);
   const [shippingMessage, setShippingMessage] = useState("");
@@ -238,15 +238,14 @@ function ProductPageContent({
     { title: "Cuidados e segurança", content: product.details?.safety ?? "" },
   ];
 
-  const availableQuantity = chairModel && selectedCover && ballSet
-    ? getConfigurationAvailableQuantity({ chairModel, cover: selectedCover, reducer: selectedReducer, ballSet })
-    : chairModel?.availableQuantity ?? Number.POSITIVE_INFINITY;
-
-  useEffect(() => {
-    if (Number.isFinite(availableQuantity) && availableQuantity > 0 && qty > availableQuantity) {
-      setQty(availableQuantity);
-    }
-  }, [availableQuantity, qty]);
+  const configurationAvailable = !chairModel || Boolean(
+    chairModel.availableQuantity > 0
+    && selectedCover
+    && selectedCover.availableQuantity > 0
+    && ballSet
+    && ballSet.availableQuantity > 0
+    && (!selectedReducer || selectedReducer.availableQuantity > 0),
+  );
 
   const minimumStartDate = getTomorrowIsoDate(deliverySettings.timeZone);
   const endDate = useMemo(() => period && startDate ? addDays(startDate, period) : "", [startDate, period]);
@@ -258,6 +257,12 @@ function ProductPageContent({
       setShippingMessage("");
       return () => { active = false; };
     }
+    if (!isDeliveryAddressSupported(address)) {
+      setShippingEstimate(null);
+      setShippingPending(false);
+      setShippingMessage("A entrega está disponível somente para endereços em Brasília-DF. Escolha retirada no local ou combine com nossa equipe.");
+      return () => { active = false; };
+    }
     setShippingEstimate(null);
     setShippingPending(true);
     setShippingMessage("");
@@ -267,7 +272,7 @@ function ProductPageContent({
         .catch((error: unknown) => {
           if (!active) return;
           setShippingEstimate(null);
-          setShippingMessage(error instanceof Error ? error.message : "Não foi possível calcular o frete.");
+          setShippingMessage(error instanceof Error ? error.message : "Não foi possível calcular a taxa de entrega.");
         })
         .finally(() => { if (active) setShippingPending(false); });
     }, 350);
@@ -281,9 +286,11 @@ function ProductPageContent({
     if (!period || (chairModel && (!selectedCover || !ballSet || !variant))) {
       setOfficialPriceEstimate(null);
       setPricingPending(false);
+      setPricingMessage("");
       return () => { active = false; };
     }
     setPricingPending(true);
+    setPricingMessage("");
     estimateRemotePricing({
       productId: product.id,
       periodDays: period,
@@ -298,13 +305,13 @@ function ProductPageContent({
         },
       } : {}),
     })
-      .then((response) => { if (active) setOfficialPriceEstimate(response.pricing); })
-      .catch(() => { if (active) setOfficialPriceEstimate(null); })
+      .then((response) => { if (active) { setOfficialPriceEstimate(response.pricing); setPricingMessage(""); } })
+      .catch((error: unknown) => { if (active) { setOfficialPriceEstimate(null); setPricingMessage(error instanceof Error ? error.message : "Não foi possível confirmar a disponibilidade."); } })
       .finally(() => { if (active) setPricingPending(false); });
     return () => { active = false; };
   }, [period, qty, product.id, chairModel, selectedCover, selectedReducer, ballSet, variant]);
 
-  const priceEstimate = officialPriceEstimate ?? localPriceEstimate;
+  const priceEstimate = officialPriceEstimate ?? (pricingMessage ? null : localPriceEstimate);
   const totalEstimateCents = (priceEstimate?.totalCents ?? 0)
     + (delivery === "delivery" && shippingCostCents !== null ? shippingCostCents : 0);
 
@@ -360,7 +367,7 @@ function ProductPageContent({
   }, [activeAssemblyImage, selectedAngle]);
   const activeImageUrl = activeGalleryImage?.url ?? "";
   const activeImageAlt = activeGalleryImage?.alt ?? product.name;
-  const canAddConfiguredProduct = !chairModel || Boolean(selectedCover && variant && ballSet && availableQuantity >= qty && availableQuantity > 0);
+  const canAddConfiguredProduct = !chairModel || Boolean(selectedCover && variant && ballSet && configurationAvailable);
 
   const tabs = [
     { id: "descricao", label: "Descrição" },
@@ -378,15 +385,19 @@ function ProductPageContent({
     else if (!isIsoDateOnOrAfter(startDate, minimumStartDate)) nextErrors.startDate = "A data de início deve ser a partir de amanhã.";
     if (chairModel && !selectedCover) nextErrors.cover = "Escolha um pano compatível.";
     if (!canAddConfiguredProduct) nextErrors.configuration = "A composição selecionada não está disponível.";
+    else if (pricingPending) nextErrors.configuration = "Aguarde a confirmação da disponibilidade.";
+    else if (period && pricingMessage) nextErrors.configuration = pricingMessage;
+    else if (period && !officialPriceEstimate) nextErrors.configuration = "Não foi possível confirmar a disponibilidade desta quantidade.";
     if (delivery === "delivery") {
       if (address.cep.replace(/\D/g, "").length !== 8) nextErrors.cep = "Informe um CEP válido com 8 dígitos.";
       if (!address.street.trim()) nextErrors.street = "Informe a rua ou o logradouro.";
       if (!address.number.trim()) nextErrors.number = "Informe o número ou lote.";
       if (!address.city.trim()) nextErrors.city = "Informe a cidade.";
       if (!/^[A-Za-z]{2}$/.test(address.state.trim())) nextErrors.state = "Informe a UF com 2 letras.";
+      else if (!isDeliveryAddressSupported(address)) nextErrors.state = "A entrega está disponível somente para endereços em Brasília-DF.";
       if (Object.keys(nextErrors).some((field) => ["cep", "street", "number", "city", "state"].includes(field))) {
-        nextErrors.shipping = "Preencha o endereço completo para calcular o frete.";
-      } else if (shippingPending) nextErrors.shipping = "Aguarde o cálculo do frete.";
+        nextErrors.shipping = "Preencha o endereço completo para calcular a taxa de entrega.";
+      } else if (shippingPending) nextErrors.shipping = "Aguarde o cálculo da taxa de entrega.";
       else if (shippingEstimate === null) nextErrors.shipping = shippingMessage || "Não foi possível calcular a entrega para este endereço.";
       if (!deliverySlot) nextErrors.deliverySlot = "Selecione o horário para receber a entrega.";
       else if (!isDeliverySlotAvailable(deliverySlot, deliverySettings)) nextErrors.deliverySlot = "O horário escolhido não está disponível.";
@@ -424,7 +435,6 @@ function ProductPageContent({
         },
         selectedAngle: activeAssemblyImage.angle,
         selectedImage: activeImageUrl,
-        availableQuantity,
       };
     }
 
@@ -457,7 +467,6 @@ function ProductPageContent({
                   <p className="font-semibold text-foreground">Monte sua {chairModel.name}</p>
                   <p className="text-sm text-muted-foreground">A bolinha correta é definida automaticamente pelo modelo.</p>
                 </div>
-                <span className="text-xs rounded-full bg-secondary border border-border px-2 py-1 text-muted-foreground">Estoque do modelo: {chairModel.availableQuantity}</span>
               </div>
 
               <div className="mb-5">
@@ -480,7 +489,7 @@ function ProductPageContent({
                       >
                         <div className="flex justify-between gap-2"><span className="font-medium text-sm text-foreground">{cover.name}</span>{preferred && <span className="text-[10px] bg-accent/10 text-accent border border-accent/30 rounded-full px-1.5 py-0.5">Preferencial</span>}</div>
                         <p className="text-xs text-muted-foreground mt-1">{priceAdjustmentLabel(cover.priceAdjustment.monthly)}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Disponível: {cover.availableQuantity}</p>
+                        {disabled && <p className="text-xs text-destructive mt-1">Indisponível</p>}
                       </button>
                     );
                   })}
@@ -515,7 +524,7 @@ function ProductPageContent({
                       >
                         <div className="flex justify-between gap-2"><span className="font-medium text-sm text-foreground">{reducer.name}</span>{preferred && <span className="text-[10px] bg-accent/10 text-accent border border-accent/30 rounded-full px-1.5 py-0.5">Preferencial</span>}</div>
                         <p className="text-xs text-muted-foreground mt-1">{reducerPriceAdjustmentLabel(reducer.priceAdjustment.monthly)}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Disponível: {reducer.availableQuantity}</p>
+                        {disabled && <p className="text-xs text-destructive mt-1">Indisponível</p>}
                       </button>
                     );
                   })}
@@ -525,12 +534,12 @@ function ProductPageContent({
               {ballSet && (
                 <div className="flex items-center gap-3 rounded-xl bg-secondary border border-border p-3">
                   <PackageCheck size={18} className="text-accent shrink-0" />
-                  <div className="flex-1"><p className="text-sm font-medium text-foreground">{ballSet.name}</p><p className="text-xs text-muted-foreground">Incluído automaticamente · disponível: {ballSet.availableQuantity}</p></div>
+                  <div className="flex-1"><p className="text-sm font-medium text-foreground">{ballSet.name}</p><p className="text-xs text-muted-foreground">Incluído automaticamente</p></div>
                 </div>
               )}
 
               {selectedCover && !variant && <p className="mt-3 text-sm text-destructive">Esta combinação ainda não possui uma variante visual publicada e não pode ser adicionada.</p>}
-              {selectedCover && variant && availableQuantity === 0 && <p className="mt-3 text-sm text-destructive">A composição selecionada está sem estoque no momento.</p>}
+              {selectedCover && variant && !configurationAvailable && <p className="mt-3 text-sm text-destructive">A composição selecionada está indisponível no momento.</p>}
             </div>
   ) : null;
 
@@ -552,7 +561,7 @@ function ProductPageContent({
               <span className="bg-accent text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1"><Droplets size={10} />Higienizado</span>
               <span className="bg-primary text-white text-xs px-2 py-1 rounded-lg flex items-center gap-1"><Shield size={10} />Revisado</span>
             </div>
-            <div className="absolute top-4 right-4"><AvailabilityBadge status={availableQuantity === 0 ? "unavailable" : product.status} /></div>
+            <div className="absolute top-4 right-4"><AvailabilityBadge status={chairModel && chairModel.availableQuantity <= 0 ? "unavailable" : product.status} /></div>
           </div>
           {displayGallery.length > 1 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -601,7 +610,6 @@ function ProductPageContent({
           <div className="flex gap-4 text-sm flex-wrap">
             <div className="bg-secondary rounded-xl px-4 py-2 text-center"><p className="text-muted-foreground text-xs">Idade</p><p className="font-medium text-foreground">{product.ageMin} – {product.ageMax}</p></div>
             <div className="bg-secondary rounded-xl px-4 py-2 text-center"><p className="text-muted-foreground text-xs">Peso máximo</p><p className="font-medium text-foreground">{product.weightMax}</p></div>
-            <div className="bg-secondary rounded-xl px-4 py-2 text-center"><p className="text-muted-foreground text-xs">Conservação</p><p className="font-medium text-foreground">{product.conservation}</p></div>
           </div>
 
 
@@ -644,7 +652,7 @@ function ProductPageContent({
             </div>
 
             <div className="mb-3 max-w-xs">
-              <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-foreground">Quantidade</label><div className="flex items-center border border-border rounded-xl overflow-hidden bg-input-background"><button type="button" onClick={() => setQty(Math.max(1, qty - 1))} className="px-3 py-2.5 hover:bg-muted transition-colors"><Minus size={14} /></button><span className="flex-1 text-center font-medium">{qty}</span><button type="button" onClick={() => setQty(Math.min(Number.isFinite(availableQuantity) ? Math.max(1, availableQuantity) : qty + 1, qty + 1))} className="px-3 py-2.5 hover:bg-muted transition-colors"><Plus size={14} /></button></div></div>
+              <div className="flex flex-col gap-1.5"><label className="text-sm font-medium text-foreground">Quantidade</label><div className="flex items-center border border-border rounded-xl overflow-hidden bg-input-background"><button type="button" onClick={() => setQty(Math.max(1, qty - 1))} className="px-3 py-2.5 hover:bg-muted transition-colors"><Minus size={14} /></button><span className="flex-1 text-center font-medium">{qty}</span><button type="button" onClick={() => setQty(qty + 1)} className="px-3 py-2.5 hover:bg-muted transition-colors"><Plus size={14} /></button></div>{pricingMessage && <p className="text-xs text-destructive">{pricingMessage}</p>}</div>
             </div>
 
             <div className="flex gap-3 mb-4 flex-wrap">
@@ -666,13 +674,14 @@ function ProductPageContent({
                 <div className={cn("flex items-center gap-3 px-4 py-3 rounded-xl border text-sm", shippingEstimate ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800")}>
                   <Truck size={16} className="shrink-0" />
                   {!isCompleteShippingAddress(address)
-                    ? <span>Preencha o endereço completo, incluindo número ou lote, para calcular o frete correto.</span>
+                    ? <span>Preencha o endereço completo, incluindo número ou lote, para calcular a taxa de entrega.</span>
                     : shippingPending
                       ? <span>Calculando a distância da entrega...</span>
                       : shippingEstimate
-                        ? <span>Frete estimado: <strong>{formatMoneyFromCents(shippingEstimate.amountCents)}</strong><span className="block text-xs mt-0.5">Rota de {shippingEstimate.oneWayDistanceKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km a partir de {shippingEstimate.originLabel}.</span></span>
+                        ? <span>Taxa de entrega estimada: <strong>{formatMoneyFromCents(shippingEstimate.amountCents)}</strong><span className="block text-xs mt-0.5">Calculada para o endereço informado em Brasília-DF.</span></span>
                         : <span>{shippingMessage || "Não foi possível calcular a entrega para este endereço."}</span>}
                 </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">A taxa calculada cobre somente a entrega. A devolução deve ser feita pelo cliente no ponto indicado pela Rent4Moms. Caso seja solicitada retirada no endereço, será calculada uma nova tarifa.</p>
               </div>
             )}
 
@@ -686,9 +695,9 @@ function ProductPageContent({
                 {priceEstimate && priceEstimate.baseDiscountCents > 0 && <div className="flex justify-between text-sm mb-2 text-green-700"><span>Desconto de {priceEstimate.discountPercent}% na cadeira + forro</span><span>− {formatMoneyFromCents(priceEstimate.baseDiscountCents)}</span></div>}
                 {priceEstimate && priceEstimate.reducerWaiverCents > 0 && <div className="flex justify-between text-sm mb-2 text-green-700"><span>Redutor grátis em 60/90 dias</span><span>− {formatMoneyFromCents(priceEstimate.reducerWaiverCents)}</span></div>}
                 {priceEstimate && (priceEstimate.freeBaseCents > 0 || priceEstimate.freeComponentsCents > 0) && <div className="flex justify-between text-sm mb-2 text-green-700"><span>{priceEstimate.benefitType === "free_configuration" ? "Gratuidade da configuração" : "Gratuidade do produto-base"}</span><span>− {formatMoneyFromCents(priceEstimate.freeBaseCents + priceEstimate.freeComponentsCents)}</span></div>}
-                {delivery === "delivery" && <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Frete</span><span className="text-foreground">{shippingEstimate ? formatMoneyFromCents(shippingEstimate.amountCents) : shippingPending ? "Calculando..." : "A calcular"}</span></div>}
+                {delivery === "delivery" && <div className="flex justify-between text-sm mb-2"><span className="text-muted-foreground">Taxa de entrega</span><span className="text-foreground">{shippingEstimate ? formatMoneyFromCents(shippingEstimate.amountCents) : shippingPending ? "Calculando..." : "A calcular"}</span></div>}
                 <div className="border-t border-border pt-2 mt-2 flex justify-between font-semibold"><span className="text-foreground">Total estimado</span><span className="text-primary">{formatMoneyFromCents(totalEstimateCents)}</span></div>
-                <p className="text-xs text-muted-foreground mt-2">{pricingPending ? "Confirmando a regra de preço..." : officialPriceEstimate ? "Preço calculado pelo backend com a política vigente." : "Prévia local; o backend recalcula antes de registrar o orçamento."}</p>
+                <p className="text-xs text-muted-foreground mt-2">{pricingPending ? "Confirmando preço e disponibilidade..." : officialPriceEstimate ? "Preço e disponibilidade confirmados pelo backend." : pricingMessage || "Selecione período e composição para confirmar a disponibilidade."}</p>
               </div>
             )}
 
@@ -699,7 +708,7 @@ function ProductPageContent({
             )}
 
             <div className="flex flex-col gap-2">
-              <Btn variant="primary" fullWidth onClick={addToQuote} disabled={!canAddConfiguredProduct}>
+              <Btn variant="primary" fullWidth onClick={addToQuote} disabled={!canAddConfiguredProduct || pricingPending || Boolean(period && pricingMessage)}>
                 {quoteItemIds.includes(product.id) ? <><Check size={16} />Atualizar no orçamento</> : <><ShoppingBag size={16} />Adicionar ao orçamento</>}
               </Btn>
               {chairModel && !selectedCover && <p className="text-xs text-center text-muted-foreground">Escolha um forro antes de adicionar ao orçamento.</p>}
@@ -719,7 +728,7 @@ function ProductPageContent({
         {activeTab === "descricao" && <div className="prose max-w-none text-foreground leading-relaxed"><p>{composedDescription}</p><div className="mt-6 grid sm:grid-cols-2 gap-4">{productDetailSections.map((section) => <div key={section.title} className="bg-secondary rounded-xl p-4 border border-border"><p className="font-semibold text-foreground mb-2">{section.title}</p><p className="text-sm text-muted-foreground whitespace-pre-line">{section.content || "Informação não cadastrada."}</p></div>)}</div></div>}
         {activeTab === "especificacoes" && <div className="grid sm:grid-cols-2 gap-4">{[["Categorias", categoryNames.join(", ") || "Sem categoria"], ["Marca", product.brand], ["Modelo", product.model], ["Faixa etária", `${product.ageMin} – ${product.ageMax}`], ["Peso máximo", product.weightMax], ["Dimensões", product.specs.dimensions], ["Peso do produto", product.specs.productWeight], ["Material", product.specs.material], ["Cor", selectedCover?.name ?? product.specs.color], ["Alimentação", product.specs.electric], ["Pano", selectedCover?.name ?? "Selecione na montagem"], ["Redutor", selectedReducer?.name ?? "Sem redutor"]].map(([key, value]) => <div key={key} className="flex justify-between py-2 px-4 bg-secondary rounded-xl border border-border text-sm"><span className="text-muted-foreground">{key}</span><span className="font-medium text-foreground text-right">{value}</span></div>)}<div className="sm:col-span-2 bg-secondary rounded-xl border border-border p-4"><p className="text-sm text-muted-foreground mb-2 font-medium">Itens inclusos:</p><div className="flex flex-wrap gap-2">{product.specs.includes.map((item) => <span key={item} className="text-xs bg-card border border-border px-2 py-1 rounded-lg text-foreground">{item}</span>)}</div></div></div>}
         {activeTab === "higienizacao" && <div className="max-w-2xl"><p className="text-muted-foreground leading-relaxed mb-4">Todos os nossos equipamentos passam por um processo cuidadoso de higienização entre cada locação. Você receberá o produto limpo, higienizado e pronto para uso.</p><div className="flex flex-col gap-3">{["Inspeção ao receber a devolução", "Desmontagem quando aplicável", "Limpeza adequada ao material", "Higienização de tecidos e superfícies", "Secagem completa", "Revisão de componentes", "Embalagem e preparação"].map((step, index) => <div key={step} className="flex items-center gap-3 p-3 bg-secondary rounded-xl border border-border"><div className="w-6 h-6 bg-accent rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">{index + 1}</div><span className="text-sm text-foreground">{step}</span></div>)}</div></div>}
-        {activeTab === "entrega" && <div className="max-w-2xl text-muted-foreground leading-relaxed"><p>A entrega é realizada dentro da nossa área de atendimento, em horários previamente combinados. A taxa de entrega e retirada é calculada conforme a região e informada no orçamento antes da confirmação.</p><p className="mt-4">A devolução deve ser realizada na data acordada no contrato. Em caso de atraso, uma taxa adicional poderá ser aplicada conforme descrito nas condições gerais de locação.</p></div>}
+        {activeTab === "entrega" && <div className="max-w-2xl text-muted-foreground leading-relaxed"><p>A entrega é realizada somente em endereços de Brasília-DF, em horário previamente combinado. A taxa informada no orçamento corresponde exclusivamente à entrega do equipamento.</p><p className="mt-4">Ao final da locação, a devolução deve ser feita pelo cliente no ponto indicado pela Rent4Moms. Caso seja solicitada retirada no endereço do cliente, a disponibilidade será analisada e uma nova tarifa será informada.</p><p className="mt-4">A devolução deve ocorrer na data acordada. Em caso de atraso, poderá ser aplicada a cobrança prevista nas condições gerais de locação.</p></div>}
         {activeTab === "avaliacoes" && <ProductReviewsPanel rating={displayRating} reviewCount={displayReviewCount} reviews={reviewData.reviews} loading={reviewsLoading} />}
       </div>
 

@@ -1,4 +1,5 @@
 import { isDeliverySlotAvailable } from "../../domain/delivery/slots";
+import { isDeliveryAddressSupported } from "../../domain/shipping/address";
 import type { DeliverySettings } from "../../domain/delivery/types";
 import type { QuoteDraft } from "../../domain/quote/types";
 import { getTomorrowIsoDate, isIsoDateOnOrAfter } from "../../lib/dates";
@@ -35,6 +36,7 @@ export function validateQuoteStep(
       if (!isRequired(draft.address.number)) errors.number = "Informe o número do endereço.";
       if (!isRequired(draft.address.city)) errors.city = "Informe a cidade.";
       if (!isRequired(draft.address.state) || draft.address.state.length !== 2) errors.state = "Informe a UF com 2 letras.";
+      else if (!isDeliveryAddressSupported(draft.address)) errors.state = "A entrega está disponível somente para endereços em Brasília-DF.";
       if (!draft.deliverySlot) errors.deliverySlot = "Selecione o horário para receber a entrega.";
       else if (!isDeliverySlotAvailable(draft.deliverySlot, deliverySettings)) errors.deliverySlot = "O horário escolhido não está mais disponível na configuração atual.";
     }

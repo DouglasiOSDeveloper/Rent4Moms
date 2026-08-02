@@ -30,7 +30,6 @@ export interface QuoteAssemblySnapshot {
   };
   selectedAngle: AssemblyAngle;
   selectedImage: string;
-  availableQuantity: number;
 }
 
 export interface ProductSnapshot {
@@ -107,7 +106,6 @@ export interface QuoteShippingQuote {
   cep: string;
   provider?: string;
   formulaVersion?: "distance-fuel-v1";
-  originLabel?: string;
   oneWayDistanceKm?: number;
   chargedDistanceKm?: number;
   durationSeconds?: number | null;

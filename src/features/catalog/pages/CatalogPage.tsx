@@ -73,7 +73,7 @@ export function CatalogPage({ navigate }: {
       </div>
       <div>
         <p className="font-semibold text-foreground mb-3">Disponibilidade</p>
-        {[["available", "Disponível"], ["few_units", "Poucas unidades"], ["on_demand", "Sob consulta"]].map(([value, label]) => (
+        {[["available", "Disponível"], ["on_demand", "Sob consulta"]].map(([value, label]) => (
           <label key={value} className="flex items-center gap-2 py-1.5 cursor-pointer">
             <input
               type="checkbox"

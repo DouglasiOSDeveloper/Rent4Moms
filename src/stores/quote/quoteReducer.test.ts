@@ -23,7 +23,6 @@ describe("quote draft", () => {
           cep: "01000-000",
           provider: "test_routes",
           formulaVersion: "distance-fuel-v1" as const,
-          originLabel: "Estoque de teste",
           oneWayDistanceKm: 5,
           chargedDistanceKm: 10,
           durationSeconds: 900,
@@ -107,7 +106,6 @@ describe("quote draft", () => {
           },
           selectedAngle: "FRT",
           selectedImage: "data:image/svg+xml,assembly",
-          availableQuantity: 2,
         },
       },
     });

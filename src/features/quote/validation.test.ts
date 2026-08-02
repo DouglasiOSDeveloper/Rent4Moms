@@ -19,7 +19,6 @@ describe("quote step validation", () => {
       cep: "01001-000",
       provider: "test_routes",
       formulaVersion: "distance-fuel-v1" as const,
-      originLabel: "Estoque de teste",
       oneWayDistanceKm: 5,
       chargedDistanceKm: 10,
       durationSeconds: 900,
@@ -40,14 +39,13 @@ describe("quote step validation", () => {
       product: INITIAL_PRODUCTS[0],
       options: { periodDays: 30, startDate: "2026-07-21", fulfillment: "delivery", cep: "01001-000", deliverySlot: "11:00" },
     });
-    draft = quoteReducer(draft, { type: "UPDATE_ADDRESS", patch: { street: "Praça da Sé", number: "100", city: "São Paulo", state: "SP" } });
+    draft = quoteReducer(draft, { type: "UPDATE_ADDRESS", patch: { street: "Quadra 205 Sul", number: "100", city: "Brasília", state: "DF" } });
     draft = quoteReducer(draft, { type: "UPDATE_SHIPPING_QUOTE", estimate: {
       status: "calculated" as const,
       amountCents: 2_500,
       cep: "01001-000",
       provider: "test_routes",
       formulaVersion: "distance-fuel-v1" as const,
-      originLabel: "Estoque de teste",
       oneWayDistanceKm: 5,
       chargedDistanceKm: 10,
       durationSeconds: 900,
@@ -57,6 +55,17 @@ describe("quote step validation", () => {
     }, cep: "01001-000" });
 
     expect(validateQuoteStep(1, draft, DEFAULT_DELIVERY_SETTINGS, now)).toEqual({});
+  });
+
+  it("blocks delivery outside Brasília-DF", () => {
+    let draft = quoteReducer(createEmptyQuoteDraft(), {
+      type: "ADD_PRODUCT",
+      product: INITIAL_PRODUCTS[0],
+      options: { periodDays: 30, startDate: "2026-07-21", fulfillment: "delivery", cep: "40000-000", deliverySlot: "11:00" },
+    });
+    draft = quoteReducer(draft, { type: "UPDATE_ADDRESS", patch: { street: "Rua A", number: "10", city: "Salvador", state: "BA" } });
+    const errors = validateQuoteStep(1, draft, DEFAULT_DELIVERY_SETTINGS, now);
+    expect(errors.state).toContain("Brasília-DF");
   });
 
   it("validates required personal data", () => {
