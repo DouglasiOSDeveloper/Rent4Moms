@@ -16,6 +16,12 @@ import {
 } from "../test/fixtures/catalogFixture";
 import { DEFAULT_PUBLIC_LEGAL_PAGES, DEFAULT_SITE_SETTINGS } from "../test/fixtures/contentFixture";
 import { DEFAULT_DELIVERY_SETTINGS } from "../domain/delivery/slots";
+import { DEFAULT_PRODUCT_PERIOD_PRICING } from "../domain/pricing/types";
+
+function toPublicAvailability<T extends { availableQuantity: number }>(item: T) {
+  const { availableQuantity, ...publicItem } = item;
+  return { ...publicItem, isAvailable: availableQuantity > 0 };
+}
 
 describe("Rent4Moms frontend routing baseline", () => {
   let container: HTMLDivElement;
@@ -23,7 +29,7 @@ describe("Rent4Moms frontend routing baseline", () => {
 
   beforeEach(() => {
     window.localStorage.clear();
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const url = String(input);
       if (url.includes("/auth/session")) return new Response(JSON.stringify({ error: "AUTH_REQUIRED" }), { status: 401, headers: { "content-type": "application/json" } });
       if (url.includes("/catalog")) {
@@ -31,10 +37,10 @@ describe("Rent4Moms frontend routing baseline", () => {
           version: 2,
           products: INITIAL_PRODUCTS,
           categories: INITIAL_CATEGORIES,
-          chairModels: INITIAL_CHAIR_MODELS,
-          covers: INITIAL_COVERS,
-          reducers: INITIAL_REDUCERS,
-          ballSets: INITIAL_BALL_SETS,
+          chairModels: INITIAL_CHAIR_MODELS.map(toPublicAvailability),
+          covers: INITIAL_COVERS.map(toPublicAvailability),
+          reducers: INITIAL_REDUCERS.map(toPublicAvailability),
+          ballSets: INITIAL_BALL_SETS.map(toPublicAvailability),
           compatibilities: INITIAL_COMPATIBILITIES,
           assemblyVariants: INITIAL_ASSEMBLY_VARIANTS,
           updatedAt: new Date(0).toISOString(),
@@ -42,8 +48,31 @@ describe("Rent4Moms frontend routing baseline", () => {
       }
       if (url.includes("/content/site")) return new Response(JSON.stringify({ siteSettings: DEFAULT_SITE_SETTINGS, legalPages: DEFAULT_PUBLIC_LEGAL_PAGES }), { status: 200, headers: { "content-type": "application/json" } });
       if (url.includes("/settings/delivery")) return new Response(JSON.stringify({ settings: { deliverySettings: DEFAULT_DELIVERY_SETTINGS, shipping: { enabled: true, originLabel: "Estoque de teste", originAddress: { cep: "70040-900", street: "SBS Quadra 2", number: "12", complement: "", district: "Asa Sul", city: "Brasília", state: "DF" }, fuelPriceCentsPerLiter: 600, consumptionKmPerLiter: 10, multiplier: 1, minimumFeeCents: 2500, roundTrip: true, maxDistanceKm: 50 }, updatedAt: new Date(0).toISOString() } }), { status: 200, headers: { "content-type": "application/json" } });
+      if (url.includes("/pricing/estimate")) {
+        const request = init?.body ? JSON.parse(String(init.body)) as { periodDays?: number; quantity?: number } : {};
+        const days = request.periodDays ?? 30;
+        const quantity = request.quantity ?? 1;
+        const monthlyBlocks = Math.floor(days / 30);
+        const weeklyBlocks = Math.floor((days % 30) / 7);
+        const dailyBlocks = days % 7;
+        const baseUnitPriceCents = (monthlyBlocks * 39900) + (weeklyBlocks * 14900) + (dailyBlocks * 2900);
+        const totalCents = baseUnitPriceCents * quantity;
+        return new Response(JSON.stringify({
+          pricing: {
+            days, quantity, mode: "rental", monthlyBlocks, weeklyBlocks, dailyBlocks,
+            baseUnitPriceCents, coverUnitPriceCents: 0, reducerUnitPriceCents: 0, otherComponentsUnitPriceCents: 0,
+            componentsUnitPriceCents: 0, unitPriceCents: baseUnitPriceCents, baseSubtotalCents: totalCents, coverSubtotalCents: 0,
+            reducerSubtotalCents: 0, otherComponentsSubtotalCents: 0, componentsSubtotalCents: 0,
+            discountEligibleSubtotalCents: totalCents, subtotalCents: totalCents, discountPercent: 0, baseDiscountCents: 0,
+            reducerWaiverCents: 0, freeBaseCents: 0, freeComponentsCents: 0, discountCents: 0, totalCents,
+            appliedPeriodDays: null, benefitType: "none", freeScope: null,
+          },
+          composition: null,
+          policy: DEFAULT_PRODUCT_PERIOD_PRICING,
+        }), { status: 200, headers: { "content-type": "application/json" } });
+      }
       if (url.includes("/shipping/estimate")) return new Response(JSON.stringify({ shippingQuote: { status: "calculated", amountCents: 2500, cep: "71925-180", provider: "test_routes", formulaVersion: "distance-fuel-v1", oneWayDistanceKm: 5, chargedDistanceKm: 10, durationSeconds: 900, fuelLiters: 1, parameters: { fuelPriceCentsPerLiter: 600, consumptionKmPerLiter: 10, multiplier: 1, minimumFeeCents: 2500, roundTrip: true, maxDistanceKm: 50 }, calculatedAt: new Date(0).toISOString() } }), { status: 200, headers: { "content-type": "application/json" } });
-      if (url.includes("viacep.com.br/ws/01001000/json/")) return new Response(JSON.stringify({ cep: "01001-000", logradouro: "Praça da Sé", complemento: "", bairro: "Sé", localidade: "São Paulo", uf: "SP" }), { status: 200, headers: { "content-type": "application/json" } });
+      if (url.includes("viacep.com.br/ws/71925180/json/")) return new Response(JSON.stringify({ cep: "71925-180", logradouro: "Quadra 205 Sul", complemento: "", bairro: "Águas Claras", localidade: "Brasília", uf: "DF" }), { status: 200, headers: { "content-type": "application/json" } });
       return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
     });
     container = document.createElement("div");
@@ -130,7 +159,7 @@ describe("Rent4Moms frontend routing baseline", () => {
     expect(slotSelect).toBeTruthy();
     const startDate = addDays(getTomorrowIsoDate(), 10);
     await setInputValue(dateInput!, startDate);
-    await setInputValue(cepInput!, "01001-000");
+    await setInputValue(cepInput!, "71925-180");
     await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 450)); });
     const numberInput = container.querySelector<HTMLInputElement>('input[placeholder="123"]');
     expect(numberInput).toBeTruthy();
@@ -169,8 +198,8 @@ describe("Rent4Moms frontend routing baseline", () => {
     expect(container.textContent).toContain("Resumo financeiro atualizado");
     expect(container.textContent).toContain("Produto-base");
     expect(container.textContent).toContain("Acessórios");
-    expect(container.textContent).toContain("Frete");
-    expect(container.querySelector<HTMLInputElement>('input[placeholder="Nome da rua"]')?.value).toBe("Praça da Sé");
+    expect(container.textContent).toContain("Taxa de entrega");
+    expect(container.querySelector<HTMLInputElement>('input[placeholder="Nome da rua"]')?.value).toBe("Quadra 205 Sul");
     expect(container.querySelector<HTMLInputElement>('input[placeholder="123"]')?.value).toBe("1");
     expect(container.textContent?.replace(/\u00a0/g, " ")).toContain("R$ 25,00");
 
@@ -179,6 +208,7 @@ describe("Rent4Moms frontend routing baseline", () => {
     );
     expect(sixtyDaysButton).toBeTruthy();
     await act(async () => sixtyDaysButton?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 0)); });
 
     const quoteText = container.textContent?.replace(/\u00a0/g, " ") ?? "";
     expect(quoteText).toContain(formatDateBR(addDays(startDate, 60)));
