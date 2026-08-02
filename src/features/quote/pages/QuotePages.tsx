@@ -23,7 +23,7 @@ import type { DeliverySettings } from "../../../domain/delivery/types";
 import type { PublicLegalPage } from "../../../domain/content/types";
 import { calculateQuotePriceSummary } from "../../../domain/pricing/pricingEngine";
 import type { FulfillmentMethod, QuoteAddress } from "../../../domain/quote/types";
-import { isCompleteShippingAddress } from "../../../domain/shipping/address";
+import { isCompleteShippingAddress, isDeliveryAddressSupported } from "../../../domain/shipping/address";
 import type { Page } from "../../../domain/shared/types";
 import { addDays, formatDateBR, getTomorrowIsoDate } from "../../../lib/dates";
 import { maskCpf, maskPhone } from "../../../lib/masks";
@@ -143,6 +143,12 @@ export function QuotePage({ navigate, deliverySettings }: {
       setShippingMessage("");
       return () => { active = false; };
     }
+    if (!isDeliveryAddressSupported(draft.address)) {
+      setShippingPending(false);
+      setShippingMessage("A entrega está disponível somente para endereços em Brasília-DF. Escolha retirada no local ou combine com nossa equipe.");
+      updateShippingQuote(null, draft.address.cep);
+      return () => { active = false; };
+    }
     if (
       draft.shippingQuote.status === "calculated"
       && draft.shippingQuote.cep === draft.address.cep
@@ -163,7 +169,7 @@ export function QuotePage({ navigate, deliverySettings }: {
         .catch((error: unknown) => {
           if (!active) return;
           updateShippingQuote(null, draft.address.cep);
-          setShippingMessage(error instanceof Error ? error.message : "Não foi possível calcular o frete.");
+          setShippingMessage(error instanceof Error ? error.message : "Não foi possível calcular a taxa de entrega.");
         })
         .finally(() => { if (active) setShippingPending(false); });
     }, 350);
@@ -343,7 +349,7 @@ export function QuotePage({ navigate, deliverySettings }: {
                 </div>
               )}
               <div className="flex justify-between gap-4 text-muted-foreground">
-                <span>Frete</span>
+                <span>Taxa de entrega</span>
                 <span className="whitespace-nowrap text-foreground">
                   {draft.fulfillment !== "delivery"
                     ? formatMoneyFromCents(0)
@@ -391,10 +397,11 @@ export function QuotePage({ navigate, deliverySettings }: {
                   {shippingPending
                     ? <span>Calculando a distância da entrega...</span>
                     : draft.shippingQuote.status === "calculated"
-                      ? <span>Frete estimado: <strong>{formatMoneyFromCents(draft.shippingQuote.amountCents)}</strong>{draft.shippingQuote.oneWayDistanceKm !== undefined && <span className="block text-xs mt-0.5">Rota de {draft.shippingQuote.oneWayDistanceKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km.</span>}</span>
+                      ? <span>Taxa de entrega estimada: <strong>{formatMoneyFromCents(draft.shippingQuote.amountCents)}</strong>{draft.shippingQuote.oneWayDistanceKm !== undefined && <span className="block text-xs mt-0.5">Rota de {draft.shippingQuote.oneWayDistanceKm.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km.</span>}</span>
                       : <span>{shippingMessage || "Não foi possível calcular a entrega para este endereço. Escolha retirada ou combine com a equipe."}</span>}
                 </div>
               )}
+              <p className="text-xs leading-relaxed text-muted-foreground">A taxa calculada cobre somente a entrega. A devolução deve ser feita pelo cliente no ponto indicado pela Rent4Moms. Caso seja solicitada retirada no endereço, será calculada uma nova tarifa.</p>
               <DeliverySlotSelect
                 settings={deliverySettings}
                 value={draft.deliverySlot}
@@ -482,7 +489,7 @@ export function QuotePage({ navigate, deliverySettings }: {
             <div className="bg-card rounded-2xl border border-border p-4 text-sm">
               <div className="flex justify-between text-muted-foreground mb-2"><span>Produtos e adicionais</span><span>{formatMoneyFromCents(total.itemsSubtotalCents)}</span></div>
               {total.discountCents > 0 && <div className="flex justify-between text-green-700 mb-2"><span>Benefícios do período</span><span>− {formatMoneyFromCents(total.discountCents)}</span></div>}
-              {draft.fulfillment === "delivery" && <div className="flex justify-between text-muted-foreground mb-2"><span>Frete</span><span>{draft.shippingQuote.status === "calculated" ? formatMoneyFromCents(total.shippingCents) : "A calcular"}</span></div>}
+              {draft.fulfillment === "delivery" && <div className="flex justify-between text-muted-foreground mb-2"><span>Taxa de entrega</span><span>{draft.shippingQuote.status === "calculated" ? formatMoneyFromCents(total.shippingCents) : "A calcular"}</span></div>}
               <div className="border-t border-border pt-3 flex justify-between font-semibold"><span className="text-foreground">Total estimado</span><span className="text-primary text-lg">{formatMoneyFromCents(total.totalCents)}</span></div>
             </div>
           </div>

@@ -10,3 +10,7 @@ export function isCompleteShippingAddress(address: ShippingAddress): boolean {
     && /^[A-Za-z]{2}$/.test(address.state.trim())
   );
 }
+
+export function isDeliveryAddressSupported(address: Pick<ShippingAddress, "state">): boolean {
+  return address.state.trim().toUpperCase() === "DF";
+}

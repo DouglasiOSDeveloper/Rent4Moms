@@ -16,7 +16,6 @@ describe("shippingApi", () => {
         cep: "01001000",
         provider: "test_routes",
         formulaVersion: "distance-fuel-v1",
-        originLabel: "Estoque",
         oneWayDistanceKm: 15,
         chargedDistanceKm: 30,
         durationSeconds: 1200,
@@ -34,13 +33,13 @@ describe("shippingApi", () => {
     });
 
     const address = {
-      cep: "01001000",
-      street: "Praça da Sé",
-      number: "1",
+      cep: "71925180",
+      street: "Quadra 205 Sul",
+      number: "624",
       complement: "",
-      district: "Sé",
-      city: "São Paulo",
-      state: "SP",
+      district: "Águas Claras",
+      city: "Brasília",
+      state: "DF",
     };
     const result = await estimateRemoteShipping(address);
 

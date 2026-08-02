@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Search, Calendar, MessageCircle, Package, Eye, DollarSign, ArrowRight, Shield, Leaf, Award, Info, Home, Droplets, Zap } from "lucide-react";
+import { Search, Calendar, MessageCircle, Package, Eye, DollarSign, ArrowRight, Shield, Leaf, Award, Info, Home, Droplets, Zap, MapPin } from "lucide-react";
 import type { Page } from "../../../domain/shared/types";
 import { getCategoryNames } from "../../../domain/catalog/selectors";
 import { useCatalog } from "../../../stores/catalog/CatalogProvider";
@@ -20,6 +20,10 @@ export function HomePage({ navigate }: {
   const { siteSettings } = useSiteContent();
   const whatsappUrl = buildWhatsAppUrl(siteSettings.contact.whatsapp, siteSettings.whatsapp.defaultMessage);
   const featured = products.filter(p => p.featured);
+  const heroProducts = [...products]
+    .filter((product) => Boolean(product.photo))
+    .sort((left, right) => right.model.localeCompare(left.model, "pt-BR", { numeric: true }))
+    .slice(0, 3);
   const publishedFaqs = [...siteSettings.faqs].filter((item) => item.isPublished).sort((left, right) => left.sortOrder - right.sortOrder).slice(0, 4);
   const [featuredReviews, setFeaturedReviews] = useState<PublicProductReview[]>([]);
   const [featuredReviewsLoading, setFeaturedReviewsLoading] = useState(true);
@@ -43,18 +47,21 @@ export function HomePage({ navigate }: {
 
       {/* Hero */}
       <section className="relative overflow-hidden bg-secondary">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-          <div className="text-center">
-            <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20">
+          <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="text-center lg:text-left">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-card px-3 py-1.5 text-sm font-medium text-primary">
+                <MapPin size={15} /> Atendimento e entregas em Brasília-DF
+              </div>
               <h1 style={{ fontFamily: "'DM Serif Display', serif" }} className="text-4xl sm:text-5xl lg:text-6xl text-foreground leading-tight mb-6">
                 {siteSettings.brand.tagline || "Conteúdo institucional ainda não publicado"}
               </h1>
               {siteSettings.brand.description ? (
-                <p className="text-lg text-muted-foreground mb-8 leading-relaxed max-w-2xl mx-auto">{siteSettings.brand.description}</p>
+                <p className="text-lg text-muted-foreground mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0">{siteSettings.brand.description}</p>
               ) : (
-                <p className="text-lg text-muted-foreground mb-8 leading-relaxed max-w-2xl mx-auto">A apresentação institucional será exibida após o cadastro no painel administrativo.</p>
+                <p className="text-lg text-muted-foreground mb-8 leading-relaxed max-w-2xl mx-auto lg:mx-0">A apresentação institucional será exibida após o cadastro no painel administrativo.</p>
               )}
-              <div className="flex flex-wrap gap-3 justify-center">
+              <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
                 <Btn variant="primary" size="lg" onClick={() => navigate("catalog")}>
                   <Search size={18} />Encontrar uma cadeirinha
                 </Btn>
@@ -62,6 +69,22 @@ export function HomePage({ navigate }: {
                   Como funciona <ArrowRight size={18} />
                 </Btn>
               </div>
+            </div>
+            <div className="rounded-3xl border border-border bg-card p-4 shadow-sm sm:p-6">
+              {heroProducts.length ? (
+                <div className="grid grid-cols-3 gap-3">
+                  {heroProducts.map((product) => (
+                    <button key={product.id} type="button" onClick={() => navigate("product", { productId: product.id })} className="group rounded-2xl border border-border bg-white p-2 text-center transition-all hover:border-primary hover:shadow-md sm:p-3">
+                      <div className="flex h-44 items-center justify-center sm:h-56">
+                        <img src={product.photo} alt={product.name} className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]" />
+                      </div>
+                      <p className="mt-2 text-sm font-semibold text-foreground">{product.model}</p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex min-h-72 items-center justify-center text-center text-sm text-muted-foreground">As imagens dos modelos aparecerão aqui após a publicação do catálogo.</div>
+              )}
             </div>
           </div>
         </div>

@@ -19,13 +19,45 @@ import type {
 } from "../../domain/catalog/types";
 import { apiRequest } from "../api/apiClient";
 
+
+type PublicChairModel = Omit<ChairModel, "availableQuantity"> & { isAvailable: boolean };
+type PublicCover = Omit<Cover, "availableQuantity"> & { isAvailable: boolean };
+type PublicReducer = Omit<Reducer, "availableQuantity"> & { isAvailable: boolean };
+type PublicBallSet = Omit<BallSet, "availableQuantity"> & { isAvailable: boolean };
+
+interface PublicCatalogSnapshot extends Omit<CatalogSnapshot, "chairModels" | "covers" | "reducers" | "ballSets"> {
+  chairModels: PublicChairModel[];
+  covers: PublicCover[];
+  reducers: PublicReducer[];
+  ballSets: PublicBallSet[];
+}
+
+function normalizePublicAvailability<T extends { isAvailable: boolean }>(item: T): Omit<T, "isAvailable"> & { availableQuantity: number } {
+  const { isAvailable, ...catalogItem } = item;
+  return { ...catalogItem, availableQuantity: isAvailable ? 1 : 0 };
+}
+
+function normalizePublicCatalog(catalog: PublicCatalogSnapshot): CatalogSnapshot {
+  return {
+    ...catalog,
+    chairModels: catalog.chairModels.map(normalizePublicAvailability),
+    covers: catalog.covers.map(normalizePublicAvailability),
+    reducers: catalog.reducers.map(normalizePublicAvailability),
+    ballSets: catalog.ballSets.map(normalizePublicAvailability),
+  };
+}
+
 interface MutationResponse<T> { entity: T; catalog: CatalogSnapshot }
 interface DeleteResponse { impact: CatalogImpact; catalog: CatalogSnapshot }
 
 export class CatalogApiRepository {
   async load(admin = false): Promise<CatalogSnapshot> {
-    const response = await apiRequest<{ catalog: CatalogSnapshot }>(admin ? "/admin/catalog" : "/catalog");
-    return response.catalog;
+    if (admin) {
+      const response = await apiRequest<{ catalog: CatalogSnapshot }>("/admin/catalog");
+      return response.catalog;
+    }
+    const response = await apiRequest<{ catalog: PublicCatalogSnapshot }>("/catalog");
+    return normalizePublicCatalog(response.catalog);
   }
 
   async createCategory(input: CategoryInput): Promise<MutationResponse<Category>> {

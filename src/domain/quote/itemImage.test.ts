@@ -27,7 +27,6 @@ function quoteItem(overrides: Partial<QuoteItem["productSnapshot"]> = {}): Quote
         ballSet: { id: "balls-1", code: "B20", name: "Bolinhas 2.0", description: "" },
         selectedAngle: "FRT",
         selectedImage: "",
-        availableQuantity: 1,
       },
       ...overrides,
     },
